@@ -66,90 +66,104 @@ class GrouseMountainAccount:
 
             self.updated()
 
-
-def does_account_exist(number):
-    accounts = load_data()
-    root_url = "http://www.grousemountain.com/grind_stats/{}/".format(number)  # key2"
-    if number not in accounts.keys():
-        try:
-            with urllib.request.urlopen(root_url) as page:
-                soup = BeautifulSoup(page.read(390))
-
-                titles = soup.findAll('title')
-                for title in titles:
-                    print("{}: {}".format(number, title.string.strip().split("'s Grouse Grind Stats")[0]))
-                    return number, title.string.strip().split("'s Grouse Grind Stats")[0]
-
-        except urllib.error.URLError as e:
-            # print("{}: {}".format(number, e.reason))
-            return number, e.reason
-
-        except ConnectionResetError as e:
-            print(e)
-    else:
-        # print("SKIPPED: {}: {}".format(number, account_info[number]))
-        pass
-
-
 def load_data(_storage_path=os.path.expanduser("~/Documents/grousemountain.pickle")):
     print("[LOADING] {}".format(_storage_path))
     accounts = list()  # will load a list of GrouseMountainAccounts
     if os.path.isfile(_storage_path):
         accounts = pickle.load(open(_storage_path, 'rb'))
-
+    print("[LOADING] Complete!")
     return accounts
-
 
 def save_data(data, _storage_path=os.path.expanduser("~/Documents/grousemountain.pickle")):
     print("[SAVING] {}".format(_storage_path))
     pickle.dump(data, open(_storage_path, 'wb'))
-    # print("[SAVED] Stored {} {} entries.".format(len(data), type(data[0])))
+    print("[SAVING] Complete!")
 
+def does_account_exist(number):
+    root_url = "http://www.grousemountain.com/grind_stats/{}/".format(number)  # key2"
 
-def collect_account_numbers(pickle_path):
-    accounts = load_data()
-    pool = 120
-    with concurrent.futures.ProcessPoolExecutor(pool) as executor:
+    try:
+        with urllib.request.urlopen(root_url) as page:
+            soup = BeautifulSoup(page.read(390))
+
+            titles = soup.findAll('title')
+            for title in titles:
+                print("FOUND: {}: {}".format(number, title.string.strip().split("'s Grouse Grind Stats")[0]))
+                return number, title.string.strip().split("'s Grouse Grind Stats")[0]
+
+    except urllib.error.URLError as e:
+        # print("{}: {}".format(number, e.reason))
+        return number, e.reason
+
+    except ConnectionResetError as e:
+        print(e)
+
+def collect_account_numbers(min, max, step, _storage_path=None):
+    accounts = load_data(_storage_path=_storage_path)
+
+    def get_unknown_uuids(min, max, step, _accounts):
         # accounts seem to end in:
         # -15000
         # -05000
         # -03000
+        # -02000
         # -06000
         options = [15000,
                    5000,
+                   4000,
                    3000,
+                   2000,
                    6000]
+        existing_account_numbers = [_account.uuid for _account in _accounts]
+        numbers = list()
         for option in options:
-            print("[info] Iterating over accounts ending in {}". format(option))
-            futures = [executor.submit(does_account_exist, number) for number in range(10000000000 + option,
-                                                                                       64000000000 + option,
-                                                                                       1000000)]
-            concurrent.futures.wait(futures)
-            results = [future.result() for future in concurrent.futures.as_completed(futures)]
-            for r in results:
-                if r is not None:
-                    accounts[r[0]] = r[1]
-        # will incrementally save after each iteration through options
-        save_data(accounts)
+            for number in range(min+option, max+option, step):
+                if number not in existing_account_numbers:
+                    numbers.append(number)
+        print(len(numbers))
+        return numbers
 
+    dirty = False
+    pool = 25
+    numbers = get_unknown_uuids(min, max, step, accounts)
+    with concurrent.futures.ProcessPoolExecutor(pool) as executor:
+        futures = [executor.submit(does_account_exist, number) for number in numbers]
+        concurrent.futures.wait(futures)
+        results = [future.result() for future in concurrent.futures.as_completed(futures)]
+        for result in results:
+            if result is not None:
+                new_account = create_account(result[0], result[1])
+                accounts.append(new_account)
+                dirty = True
+
+    if dirty:
+        save_data(accounts, _storage_path=_storage_path)
+
+
+def create_account(uuid, username):
+    new_account = GrouseMountainAccount(uuid=uuid)
+    new_account.name = username
+    if "Not Found" not in username and "Service Unavailable" not in username:
+        print("[info] Getting Grind times for: {}".format(new_account.name))
+        new_account.get_grind_times()
+
+    return new_account
 
 if __name__ == "__main__":
-    # collect_account_numbers(_file)
-    # data = get_grind_times(12345)
-
     new_storage_path = os.path.expanduser("~/Documents/grousemountaindata.pickle")
+    collect_account_numbers(64000000000, 65550000000, 1000000, _storage_path=new_storage_path)
 
     accounts = load_data(_storage_path=new_storage_path)
+    while True:
+        result = input("Name please: ")
+        if result == 'Q':
+            break
+        else:
+            for account in accounts:
+                if result.lower() in account.name.lower():
+                    if account.dates_and_times is not None:
+                        print("{}: {}".format(account.name, account.dates_and_times[0]))
+                    else:
+                        print("{}: {}".format(account.name, "No Grind Times Found."))
 
-    new_accounts = list()
-    for num, name in accounts.items():
-
-        account = GrouseMountainAccount(uuid=num)
-        account.name = name
-        if "Not Found" not in name and "Service Unavailable" not in name:
-            print("[info] Getting Grind times for: {}".format(account.name))
-            account.get_grind_times()
-        new_accounts.append(account)
-
-    save_data(new_accounts, _storage_path=new_storage_path)
     print("Done!")
