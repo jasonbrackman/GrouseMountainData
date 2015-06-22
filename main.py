@@ -1,72 +1,12 @@
 import os
-import re
-import json
-import time
 import pickle
-import collections
 import urllib.request
 import urllib.error
 from bs4 import BeautifulSoup
 import concurrent.futures
+import account
 
-grind = collections.namedtuple('grind', 'date, start, end, time')
-class GrouseMountainAccount:
-
-    __last_update = 0
-
-    def __init__(self, uuid=-1, name=None, age=None, dates_and_times=None):
-        self.uuid = uuid  # int
-        self.name = name  # string
-        self.age = age  # string? (ie: 40-50)
-        self.dates_and_times = dates_and_times  # list of tuples containing (date, time) zero to n times
-
-    def updated(self):
-        self.__last_update = time.time()
-
-    def get_grind_times(self, page=1, force=False):
-        if self.__last_update == 0 or int(self.__last_update/3600) > 2 or force:
-            pattern = re.compile('.*page=(\d.*)')
-            url = "http://www.grousemountain.com/grind_stats/{0}.json?page={1}".format(self.uuid, page)
-
-            try:
-                with urllib.request.urlopen(url) as request:
-                    data = request.read().decode(request.info().get_param('charset') or 'utf-8')
-
-                    jdata = json.loads(data)
-                    # print(jdata['html'])
-                    soup = BeautifulSoup(jdata['html'])
-
-                    # <span class='last'>
-                    # <a href="/grind_stats/22597005000.json?page=2" data-remote="true">Last &raquo;</a>
-                    # </span>
-
-                    rows = soup.find_all('tr')
-                    for row in rows:
-                        data = row.find_all(text=re.compile('\d.*'))
-                        data = [d.strip() for d in data]
-                        if len(data) == 4:
-                            if self.dates_and_times is None:
-                                self.dates_and_times = [grind._make(data)]
-                            else:
-                                self.dates_and_times.append(grind._make(data))
-
-                    pages = page
-                    element = soup.find('a', text=re.compile('Last'))
-                    if element is not None:
-                        results = re.match(pattern, element['href'])
-                        if results is not None:
-                            # print("Result: Pages={}".format(results.groups()[0]))
-                            pages = int(results.groups()[0])
-
-                    if page < pages:
-                        self.get_grind_times(page=page + 1)
-
-            except urllib.error.URLError as e:
-                print("[ERROR] {}".format(e.reason))
-
-            self.updated()
-
-def load_data(_storage_path=os.path.expanduser("~/Documents/grousemountain.pickle")):
+def load_data(_storage_path=os.path.expanduser("~/Documents/grousemountaindata.pickle")):
     print("[LOADING] {}".format(_storage_path))
     accounts = list()  # will load a list of GrouseMountainAccounts
     if os.path.isfile(_storage_path):
@@ -74,7 +14,7 @@ def load_data(_storage_path=os.path.expanduser("~/Documents/grousemountain.pickl
     print("[LOADING] Complete!")
     return accounts
 
-def save_data(data, _storage_path=os.path.expanduser("~/Documents/grousemountain.pickle")):
+def save_data(data, _storage_path=os.path.expanduser("~/Documents/grousemountaindata.pickle")):
     print("[SAVING] {}".format(_storage_path))
     pickle.dump(data, open(_storage_path, 'wb'))
     print("[SAVING] Complete!")
@@ -92,11 +32,20 @@ def does_account_exist(number):
                 return number, title.string.strip().split("'s Grouse Grind Stats")[0]
 
     except urllib.error.URLError as e:
-        # print("{}: {}".format(number, e.reason))
+        print("{}: {}".format(number, e.reason))
         return number, e.reason
 
     except ConnectionResetError as e:
         print(e)
+
+def create_account(uuid, username):
+    new_account = account.GrouseMountain(uuid=uuid)
+    new_account.name = username
+    if "Not Found" not in username and "Service Unavailable" not in username:
+        print("[info] Getting Grind times for: {}".format(new_account.name))
+        new_account.get_grind_times()
+
+    return new_account
 
 def collect_account_numbers(min, max, step, _storage_path=None):
     accounts = load_data(_storage_path=_storage_path)
@@ -109,16 +58,18 @@ def collect_account_numbers(min, max, step, _storage_path=None):
         # -02000
         # -06000
         options = [15000,
+                   6000,
                    5000,
                    4000,
                    3000,
-                   2000,
-                   6000]
+                   2000]
         existing_account_numbers = [_account.uuid for _account in _accounts]
         numbers = list()
         for option in options:
+            print("Collecting: {}".format(option))
             for number in range(min+option, max+option, step):
                 if number not in existing_account_numbers:
+                    print("[info] Found an uncollected number: {}".format(number))
                     numbers.append(number)
         print(len(numbers))
         return numbers
@@ -139,20 +90,22 @@ def collect_account_numbers(min, max, step, _storage_path=None):
     if dirty:
         save_data(accounts, _storage_path=_storage_path)
 
+def convert_to_new_class(old_accounts):
+        new_accounts = list()
+        for old_account in old_accounts:
+            print("Updating: {}".format(old_account.name))
+            new_account = account.GrouseMountain(uuid=old_account.uuid,
+                                                 name=old_account.name,
+                                                 #age =old_account.age,
+                                                 #sex =old_account.sex,
+                                                 dates_and_times=old_account.dates_and_times)
+            new_accounts.append(new_account)
 
-def create_account(uuid, username):
-    new_account = GrouseMountainAccount(uuid=uuid)
-    new_account.name = username
-    if "Not Found" not in username and "Service Unavailable" not in username:
-        print("[info] Getting Grind times for: {}".format(new_account.name))
-        new_account.get_grind_times()
+        new_storage_path = os.path.expanduser("~/Documents/grinders.pickle")
+        save_data(new_accounts, _storage_path=new_storage_path)
 
-    return new_account
-
-if __name__ == "__main__":
-    new_storage_path = os.path.expanduser("~/Documents/grousemountaindata.pickle")
-    collect_account_numbers(64000000000, 65550000000, 1000000, _storage_path=new_storage_path)
-
+def get_grinder_info():
+    new_storage_path = os.path.expanduser("~/Documents/grinders.pickle")
     accounts = load_data(_storage_path=new_storage_path)
     while True:
         result = input("Name please: ")
@@ -162,8 +115,12 @@ if __name__ == "__main__":
             for account in accounts:
                 if result.lower() in account.name.lower():
                     if account.dates_and_times is not None:
-                        print("{}: {}".format(account.name, account.dates_and_times[0]))
+                        print("{}: {}".format(account.name, account.dates_and_times[-1]))
                     else:
                         print("{}: {}".format(account.name, "No Grind Times Found."))
 
-    print("Done!")
+if __name__ == "__main__":
+    # get_grinder_info()
+    # collect_account_numbers(10000000000, 65000000000, 1000000, _storage_path=new_storage_path)
+    # convert_to_new_class(accounts)
+    pass
