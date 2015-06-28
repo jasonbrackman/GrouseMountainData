@@ -1,85 +1,144 @@
+import os
 import re
 import json
-import time
-import collections
 import urllib.request
 import urllib.error
+import concurrent.futures
 from bs4 import BeautifulSoup
 
-# Class that stores data points surrounding a grouse mountain account along with some convenience functions to collect
-# data.
+def add_account(accounts, uuid=-1, name=None, age=None, sex=None, grinds=None):
+    accounts[uuid] = {"name": name, "age": age, "sex": sex, "grinds": grinds}
+    return accounts
 
-# TODO: eliminate class altogether and move to sqlite3 or json storage
-# Namedtuple is outside the class because of a limitation of Pickle to pickle nested classes
-grind = collections.namedtuple('grind', 'date, start, end, time')
-class GrouseMountain:
+def collect_grind_times(grind_times, uuid, page=1):
+    titles = ('date, start, end, time',)
+    pattern = re.compile('.*page=(\d.*)')
+    url = "http://www.grousemountain.com/grind_stats/{0}.json?page={1}".format(uuid, page)
 
-    __last_update = 0
+    try:
+        with urllib.request.urlopen(url) as request:
+            data = request.read().decode(request.info().get_param('charset') or 'utf-8')
 
-    def __init__(self, uuid=-1, name=None, age=None, sex=None, dates_and_times=None):
-        self.uuid = uuid  # int
-        self.name = name  # string
-        self.age = age  # string? (ie: 40-50)
-        self.sex = sex
-        self.dates_and_times = dates_and_times  # list of tuples containing (date, time) zero to n times
+            jdata = json.loads(data)
+            # print(jdata['html'])
+            soup = BeautifulSoup(jdata['html'])
 
-    def updated(self):
-        self.__last_update = time.time()
+            # <span class='last'>
+            # <a href="/grind_stats/22597005000.json?page=2" data-remote="true">Last &raquo;</a>
+            # </span>
 
-    def get_sex(self):
-        root_url = "http://www.grousemountain.com/grind_stats/{}/".format(self.uuid)
+            rows = soup.find_all('tr')
+            for row in rows:
+                data = row.find_all(text=re.compile('\d.*'))
+                data = [d.strip() for d in data]
+                if len(data) == 4:
+                    grind_times.append(dict(zip(titles, data)))
 
-        try:
-            with urllib.request.urlopen(root_url) as page:
-                soup = BeautifulSoup(page.read())
+            pages = page
+            element = soup.find('a', text=re.compile('Last'))
+            if element is not None:
+                results = re.match(pattern, element['href'])
+                if results is not None:
+                    # print("Result: Pages={}".format(results.groups()[0]))
+                    pages = int(results.groups()[0])
 
-                spans = soup.findAll('span', {'class': 'small'})
-                for span in spans:
-                    print("FOUND: {}: {}".format(self.name, span.string.split()[:-1]))
-                    self.sex = span.split()[-1]
+            if page < pages:
+                collect_grind_times(grind_times, uuid, page=page + 1)
 
-        except urllib.error.URLError as e:
-                print("[ERROR] Could not determine sex: {}".format(e.reason))
+    except urllib.error.URLError as e:
+        print("[ERROR] {}".format(e.reason))
 
-    def get_grind_times(self, page=1, force=False):
-        if self.__last_update == 0 or int(self.__last_update/3600) > 2 or force:
-            pattern = re.compile('.*page=(\d.*)')
-            url = "http://www.grousemountain.com/grind_stats/{0}.json?page={1}".format(self.uuid, page)
+    return grind_times
 
-            try:
-                with urllib.request.urlopen(url) as request:
-                    data = request.read().decode(request.info().get_param('charset') or 'utf-8')
+def load_json_data(_storage_path=os.path.expanduser("~/Documents/grousemountaindata.json")):
+    print("[LOADING] {}".format(_storage_path))
 
-                    jdata = json.loads(data)
-                    # print(jdata['html'])
-                    soup = BeautifulSoup(jdata['html'])
+    # default accounts dict() to return if nothing has yet been saved to a file.
+    accounts = dict()
+    if os.path.isfile(_storage_path):
+        with open(_storage_path, 'r') as handle:
+            accounts = json.load(handle)
 
-                    # <span class='last'>
-                    # <a href="/grind_stats/22597005000.json?page=2" data-remote="true">Last &raquo;</a>
-                    # </span>
+    print("[LOADING] Complete!")
 
-                    rows = soup.find_all('tr')
-                    for row in rows:
-                        data = row.find_all(text=re.compile('\d.*'))
-                        data = [d.strip() for d in data]
-                        if len(data) == 4:
-                            if self.dates_and_times is None:
-                                self.dates_and_times = [grind._make(data)]
-                            else:
-                                self.dates_and_times.append(grind._make(data))
+    return accounts
 
-                    pages = page
-                    element = soup.find('a', text=re.compile('Last'))
-                    if element is not None:
-                        results = re.match(pattern, element['href'])
-                        if results is not None:
-                            # print("Result: Pages={}".format(results.groups()[0]))
-                            pages = int(results.groups()[0])
+def dump_json_data(data, _storage_path=os.path.expanduser("~/Documents/grousemountaindata.json")):
+    print("[SAVING] {}".format(_storage_path))
+    with open(_storage_path, 'w') as handle:
+        json.dump(data, handle)
+    print("[SAVING] Complete!")
 
-                    if page < pages:
-                        self.get_grind_times(page=page + 1)
+def does_account_exist(number):
+    root_url = "http://www.grousemountain.com/grind_stats/{}/".format(number)  # key2"
 
-            except urllib.error.URLError as e:
-                print("[ERROR] {}".format(e.reason))
+    try:
+        with urllib.request.urlopen(root_url) as page:
+            soup = BeautifulSoup(page.read(390))
 
-            self.updated()
+            titles = soup.findAll('title')
+            for title in titles:
+                print("FOUND: {}: {}".format(number, title.string.strip().split("'s Grouse Grind Stats")[0]))
+                return number, title.string.strip().split("'s Grouse Grind Stats")[0]
+
+    except urllib.error.URLError as e:
+        print("{}: {}".format(number, e.reason))
+        return number, e.reason
+
+    except ConnectionResetError as e:
+        print(e)
+
+"""
+def create_account(_accounts, uuid, username):
+    if "Not Found" not in username and "Service Unavailable" not in username:
+        print("[info] Getting Grind times for: {}".format(username))
+        grinds = collect_grind_times([], uuid)
+    else:
+        grinds = None
+
+    accounts = add_account(_accounts, uuid=uuid, name=username, grinds=grinds)
+    return accounts
+"""
+
+def collect_account_numbers(min, max, step, _storage_path=None):
+    accounts = load_json_data()
+
+    def get_unknown_uuids(min, max, step, _accounts):
+        # accounts seem to end in:
+        options = [15000,
+                   6000,
+                   5000,
+                   4000,
+                   3000,
+                   2000]
+
+        numbers = list()
+        for option in options:
+            print("Collecting: {}".format(option))
+            for number in range(min+option, max+option, step):
+                if number not in _accounts.keys():
+                    print("[info] Found an uncollected number: {}".format(number))
+                    numbers.append(number)
+        print(len(numbers))
+        return numbers
+
+    dirty = False
+    pool = 25
+    numbers = get_unknown_uuids(min, max, step, accounts)
+    with concurrent.futures.ProcessPoolExecutor(pool) as executor:
+        futures = [executor.submit(does_account_exist, number) for number in numbers]
+        concurrent.futures.wait(futures)
+        results = [future.result() for future in concurrent.futures.as_completed(futures)]
+        for result in results:
+            if result is not None:
+                accounts = add_account(accounts, uuid=result[0], name=result[1])
+                dirty = True
+
+    if dirty:
+        dump_json_data(accounts)
+
+if __name__ == "__main__":
+
+    x = collect_grind_times([], 22597005000, page=1)
+    print(len(x))
+    pass
