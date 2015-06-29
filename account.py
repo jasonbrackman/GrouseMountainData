@@ -69,6 +69,45 @@ def dump_json_data(data, _storage_path=os.path.expanduser("~/Documents/grousemou
         json.dump(data, handle)
     print("[SAVING] Complete!")
 
+def get_grind_data(number):
+    root_url = "http://www.grousemountain.com/grind_stats/{}/".format(number)
+
+    try:
+        with urllib.request.urlopen(root_url) as page:
+            soup = BeautifulSoup(page.read())
+
+            # full name associated with the UUID
+            username = [div.find('h2') for div in soup.findAll('div', {'class': 'title red'})]
+            name = username[0].string.strip()
+
+            # is the user male or female?
+            sex = None
+            for sex_type in soup.findAll('small'):
+                test = sex_type.string.strip()
+                if "Men" in test:
+                    sex = "Male"
+                    break
+                elif "Women" in test:
+                    sex = "Female"
+                    break
+
+            # get approximate age of the user
+            age = None
+            for age_range in soup.findAll('small'):
+                test = age_range.string.strip()
+                if "Age" in test:
+                    age = test.split("Age")[1].strip(") ")
+
+            return name, sex, age
+
+    except urllib.error.URLError as e:
+        print("{}: {}".format(number, e.reason))
+        return number, e.reason
+
+    except ConnectionResetError as e:
+        print(e)
+
+
 def does_account_exist(number):
     root_url = "http://www.grousemountain.com/grind_stats/{}/".format(number)  # key2"
 
@@ -100,7 +139,7 @@ def create_account(_accounts, uuid, username):
     return accounts
 """
 
-def collect_account_numbers(min, max, step, _storage_path=None):
+def collect_account_numbers(min, max, step):
     accounts = load_json_data()
 
     def get_unknown_uuids(min, max, step, _accounts):
@@ -138,7 +177,8 @@ def collect_account_numbers(min, max, step, _storage_path=None):
         dump_json_data(accounts)
 
 if __name__ == "__main__":
-
-    x = collect_grind_times([], 22597005000, page=1)
-    print(len(x))
+    uuid = 22597005000
+    get_grind_data(uuid)
+    # x = collect_grind_times([], 22597005000, page=1)
+    # print(len(x))
     pass
