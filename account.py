@@ -64,6 +64,7 @@ def load_json_data(_storage_path=os.path.expanduser("~/Documents/grousemountaind
     return accounts
 
 def dump_json_data(data, _storage_path=os.path.expanduser("~/Documents/grousemountaindata.json")):
+
     print("[SAVING] {}".format(_storage_path))
     with open(_storage_path, 'w') as handle:
         json.dump(data, handle)
@@ -178,7 +179,7 @@ def collect_account_numbers(min, max, step):
 
 if __name__ == "__main__":
     uuid = 22597005000
-    get_grind_data(uuid)
+    print(get_grind_data(uuid))
     # x = collect_grind_times([], 22597005000, page=1)
     # print(len(x))
     pass
