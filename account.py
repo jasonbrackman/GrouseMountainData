@@ -10,13 +10,23 @@ def add_account(accounts, uuid=-1, name=None, age=None, sex=None, grinds=None):
     accounts[uuid] = {"name": name, "age": age, "sex": sex, "grinds": grinds}
     return accounts
 
-def collect_grind_times(grind_times, uuid, page=1):
-    titles = ('date, start, end, time',)
+def collect_grind_times(grind_times, uuid, _page=1):
+    """
+    grind_times is a list that contains dicts of date, start, end, time
+    uuid is the user's unique identifier
+    the page is used if there are several pages of json data regarding past grind times.
+    """
+    titles = ('date', 'start', 'end', 'time')
     pattern = re.compile('.*page=(\d.*)')
-    url = "http://www.grousemountain.com/grind_stats/{0}.json?page={1}".format(uuid, page)
+
+    url_02 = "http://www.grousemountain.com/grind_stats/{0}".format(uuid)
+    """
+    # the first URL was working up until the end of June/2015 -- then the site broke.??
+    # the second URL must be retrieving the data internally, but the history is incomplete, only showing 100 climbs.
+    url_01 = "http://www.grousemountain.com/grind_stats/{0}.json?page={1}".format(uuid, _page)
 
     try:
-        with urllib.request.urlopen(url) as request:
+        with urllib.request.urlopen(url_01) as request:
             data = request.read().decode(request.info().get_param('charset') or 'utf-8')
 
             jdata = json.loads(data)
@@ -32,9 +42,11 @@ def collect_grind_times(grind_times, uuid, page=1):
                 data = row.find_all(text=re.compile('\d.*'))
                 data = [d.strip() for d in data]
                 if len(data) == 4:
-                    grind_times.append(dict(zip(titles, data)))
+                    times = dict(zip(titles, data))
+                    if times not in grind_times:
+                        grind_times.append(times)
 
-            pages = page
+            pages = _page
             element = soup.find('a', text=re.compile('Last'))
             if element is not None:
                 results = re.match(pattern, element['href'])
@@ -42,8 +54,23 @@ def collect_grind_times(grind_times, uuid, page=1):
                     # print("Result: Pages={}".format(results.groups()[0]))
                     pages = int(results.groups()[0])
 
-            if page < pages:
-                collect_grind_times(grind_times, uuid, page=page + 1)
+            if _page < pages:
+                collect_grind_times(grind_times, uuid, _page=_page + 1)
+
+    except urllib.error.URLError as e:
+        print("[ERROR] {}".format(e.reason))
+    """
+    try:
+        with urllib.request.urlopen(url_02) as request:
+            soup = BeautifulSoup(request.read())
+
+            data = [table.findAll('tr') for table in soup.findAll('table', {'class': 'table grind_log thin'})]
+            for grinds in data:
+                for grind in grinds:
+                    times = [item.string.strip() for item in grind.findAll('td')]
+                    times = dict(zip(titles, times))
+                    if len(times) > 0 and times not in grind_times:
+                        grind_times.append(times)
 
     except urllib.error.URLError as e:
         print("[ERROR] {}".format(e.reason))
@@ -99,16 +126,23 @@ def get_grind_data(number):
                 if "Age" in test:
                     age = test.split("Age")[1].strip(") ")
 
-            return name, sex, age
+            grinds = []
+            grinds = collect_grind_times(grinds, number)
+            print("[{}]: Found {}'s age:({}), sex:({}), and a number of grinds:({})".format(number,
+                                                                                            name,
+                                                                                            age,
+                                                                                            sex,
+                                                                                            len(grinds)))
+
+            return str(number), name, sex, age, grinds
 
     except urllib.error.URLError as e:
-        print("{}: {}".format(number, e.reason))
-        return number, e.reason
+        # print("{}: {}".format(number, e.reason))
+        return number, e.reason, None, None, []
 
     except ConnectionResetError as e:
         print(e)
-
-
+"""
 def does_account_exist(number):
     root_url = "http://www.grousemountain.com/grind_stats/{}/".format(number)  # key2"
 
@@ -122,13 +156,13 @@ def does_account_exist(number):
                 return number, title.string.strip().split("'s Grouse Grind Stats")[0]
 
     except urllib.error.URLError as e:
-        print("{}: {}".format(number, e.reason))
+        # print("{}: {}".format(number, e.reason))
         return number, e.reason
 
     except ConnectionResetError as e:
         print(e)
 
-"""
+
 def create_account(_accounts, uuid, username):
     if "Not Found" not in username and "Service Unavailable" not in username:
         print("[info] Getting Grind times for: {}".format(username))
@@ -145,18 +179,22 @@ def collect_account_numbers(min, max, step):
 
     def get_unknown_uuids(min, max, step, _accounts):
         # accounts seem to end in:
-        options = [15000,
+        options = [5000,
+                   15000,
                    6000,
-                   5000,
+                   16000,
                    4000,
+                   14000,
                    3000,
-                   2000]
+                   13000,
+                   2000,
+                   12000]
 
         numbers = list()
         for option in options:
             print("Collecting: {}".format(option))
             for number in range(min+option, max+option, step):
-                if number not in _accounts.keys():
+                if str(number) not in _accounts.keys():
                     print("[info] Found an uncollected number: {}".format(number))
                     numbers.append(number)
         print(len(numbers))
@@ -166,20 +204,29 @@ def collect_account_numbers(min, max, step):
     pool = 25
     numbers = get_unknown_uuids(min, max, step, accounts)
     with concurrent.futures.ProcessPoolExecutor(pool) as executor:
-        futures = [executor.submit(does_account_exist, number) for number in numbers]
+        futures = [executor.submit(get_grind_data, number) for number in numbers]
         concurrent.futures.wait(futures)
         results = [future.result() for future in concurrent.futures.as_completed(futures)]
         for result in results:
             if result is not None:
-                accounts = add_account(accounts, uuid=result[0], name=result[1])
+                accounts = add_account(accounts,
+                                       uuid=result[0],
+                                       name=result[1],
+                                       age=result[2],
+                                       sex=result[3],
+                                       grinds=results[4])
                 dirty = True
 
     if dirty:
         dump_json_data(accounts)
 
 if __name__ == "__main__":
-    uuid = 22597005000
-    print(get_grind_data(uuid))
+    # uuid = 22597005000
+    # print(get_grind_data(uuid))
+
     # x = collect_grind_times([], 22597005000, page=1)
     # print(len(x))
+
+    collect_account_numbers(10000000000, 60000000000, 1000000)
+
     pass
