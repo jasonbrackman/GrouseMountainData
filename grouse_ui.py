@@ -12,40 +12,53 @@ class GUI:
         self.top_frame = tk.Frame(self.main_container, background="green")
         self.top_frame.pack(side="top", fill="y", expand=False)
 
+        # mid Frame
+        self.mid_frame = tk.Frame(self.main_container, background="gray")
+        self.mid_frame.pack(side="top", fill="x", expand=False)
+
         # Bottom Frame
         self.bottom_frame = tk.Frame(self.main_container, background="yellow")
-        self.bottom_frame.pack(side="top", fill="both", expand=True)
+        self.bottom_frame.pack(side="bottom", fill="both", expand=True)
+
 
 
 class Grind(GUI):
     def __init__(self, parent):
         self.gui = GUI.__init__(self, parent)
-        parent.title("Grouse Grind App 0.2b")
 
+        parent.title("Grouse Grind App 0.2b")
         # Expensive Operation: get grind info
         self.grinders = account.load_json_data()
-
-        # update button
-        self.btn_update_uuid = tk.Button(self.top_frame, text="Update Account", command=self._update_account)
-        self.btn_update_uuid.grid(column=0, row=0, sticky='nesw')
-        self.btn_save_changes = tk.Button(self.top_frame, text="Save Changes", command=self._save_changes)
-        self.btn_save_changes.grid(column=1, row=0, sticky='nesw')
 
         # search bar
         self.var_search = tk.StringVar()
         self.var_search.trace("w", lambda name, index, mode: self.update_list())
-        self.entry_search = tk.Entry(self.bottom_frame, textvariable=self.var_search, width=35)
-        self.entry_search.grid(row=0, column=0)
+        self.entry_search = tk.Entry(self.mid_frame, textvariable=self.var_search, width=34)
+        self.entry_search.grid(row=1, column=0, sticky='nsew', pady=2, padx=2)
+
+        # list of grinders
         self.names = self.get_grouse_grind_names()
         self.names.sort()
         self.listbox_names = self.create_listbox(self.bottom_frame, items=self.names, column=0)
         self.listbox_names.bind("<<ListboxSelect>>", self.display_grinds_for_tree)
 
         self.headers_01 = ["Age", "Sex"]
-        self.tree_info = self.create_treeview(self.bottom_frame, self.headers_01, [], column=3, row=0, weight=0)
+        self.tree_info = self.create_treeview(self.mid_frame, self.headers_01, [],
+                                              column=3, row=0, weight=1, _scrollbar=False)
 
         self.headers = ["Date", "Start", "End", "Time"]
         self.tree_grind = self.create_treeview(self.bottom_frame, self.headers, [], column=3, row=1, weight=1)
+        # file menu
+        parent.config(menu=self.add_file_menu(parent))
+
+    def add_file_menu(self, parent):
+        menubar = tk.Menu(parent, tearoff=1)
+        filemenu = tk.Menu(menubar)
+        filemenu.add_command(label="Update Account", command=self._update_account)
+        filemenu.add_command(label="Save Changes", command=self._save_changes)
+        menubar.add_cascade(label="File", menu=filemenu)
+
+        return menubar
 
     def _save_changes(self):
         account.dump_json_data(self.grinders)
@@ -78,7 +91,7 @@ class Grind(GUI):
 
     def create_listbox(self, master, items=None, column=0):
         listbox = tk.Listbox(master, height=30, width=35)
-        listbox.grid(column=column, row=1, rowspan=2, stick='news')
+        listbox.grid(column=column, row=0, rowspan=2, stick='news')
         master.grid_columnconfigure(column, weight=0)
 
         s = ttk.Scrollbar(master, orient=tk.VERTICAL, command=listbox.yview)
@@ -93,13 +106,15 @@ class Grind(GUI):
 
         return listbox
 
-    def create_treeview(self, master, columns, rows, column=0, row=0, weight=0):
-        tree = ttk.Treeview(master, columns=columns, show="headings")
-        vsb = ttk.Scrollbar(orient=tk.VERTICAL, command=tree.yview)
+    def create_treeview(self, master, columns, rows, column=0, row=0, weight=0, _scrollbar=True):
+        tree = ttk.Treeview(master, height=1, columns=columns, show="headings")
 
-        tree.configure(yscrollcommand=vsb.set)
-        tree.grid(column=column, row=row, sticky='nsew', in_=master)
-        vsb.grid(column=column+1, row=row, sticky='nsew', in_=master)
+        if _scrollbar:
+            vsb = ttk.Scrollbar(orient=tk.VERTICAL, command=tree.yview)
+            tree.configure(yscrollcommand=vsb.set)
+            vsb.grid(column=column+1, row=row, sticky='nsew', in_=master)
+
+        tree.grid(column=column, row=row, rowspan=2, sticky='nsew', in_=master)
 
         master.grid_columnconfigure(column, weight=weight)
         master.grid_rowconfigure(row, weight=weight)
@@ -193,6 +208,7 @@ class Grind(GUI):
             tree.move(item[1], '', ix)
         # switch the heading so it will sort in the opposite direction
         tree.heading(col, command=lambda col=col: self.sortby(tree, col, int(not descending)))
+
 
 def my_grind_app_attempt_02():
     root = tk.Tk()
