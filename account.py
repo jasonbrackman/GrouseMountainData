@@ -62,7 +62,7 @@ def collect_grind_times(grind_times, uuid, _page=1):
     """
     try:
         with urllib.request.urlopen(url_02) as request:
-            soup = BeautifulSoup(request.read())
+            soup = BeautifulSoup(request.read(), "html.parser")
 
             data = [table.findAll('tr') for table in soup.findAll('table', {'class': 'table grind_log thin'})]
             for grinds in data:
@@ -83,7 +83,7 @@ def load_json_data(_storage_path=os.path.expanduser("~/Documents/grousemountaind
     # default accounts dict() to return if nothing has yet been saved to a file.
     accounts = dict()
     if os.path.isfile(_storage_path):
-        with open(_storage_path, 'r') as handle:
+        with open(_storage_path, 'r',) as handle:
             accounts = json.load(handle)
 
     print("[LOADING] Complete!")
@@ -102,7 +102,7 @@ def get_grind_data(number):
 
     try:
         with urllib.request.urlopen(root_url) as page:
-            soup = BeautifulSoup(page.read())
+            soup = BeautifulSoup(page.read(), "html.parser")
 
             # full name associated with the UUID
             username = [div.find('h2') for div in soup.findAll('div', {'class': 'title red'})]
@@ -201,7 +201,7 @@ def collect_account_numbers(min, max, step):
         return numbers
 
     dirty = False
-    pool = 25
+    pool = 4
     numbers = get_unknown_uuids(min, max, step, accounts)
     with concurrent.futures.ProcessPoolExecutor(pool) as executor:
         futures = [executor.submit(get_grind_data, number) for number in numbers]
@@ -227,6 +227,6 @@ if __name__ == "__main__":
     # x = collect_grind_times([], 22597005000, page=1)
     # print(len(x))
 
-    collect_account_numbers(10000000000, 60000000000, 1000000)
+    collect_account_numbers(10000000000, 68000000000, 1000000)
 
     pass

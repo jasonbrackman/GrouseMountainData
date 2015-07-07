@@ -1,3 +1,10 @@
+import matplotlib
+matplotlib.use('TkAgg')
+import matplotlib.pyplot as plt
+
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
+from matplotlib.figure import Figure
+
 import account
 import tkinter as tk
 import tkinter.ttk as ttk
@@ -19,7 +26,6 @@ class GUI:
         # Bottom Frame
         self.bottom_frame = tk.Frame(self.main_container, background="yellow")
         self.bottom_frame.pack(side="bottom", fill="both", expand=True)
-
 
 
 class Grind(GUI):
@@ -50,6 +56,17 @@ class Grind(GUI):
         self.tree_grind = self.create_treeview(self.bottom_frame, self.headers, [], column=3, row=1, weight=1)
         # file menu
         parent.config(menu=self.add_file_menu(parent))
+
+        # plot
+        self.f = Figure(figsize=(5, 4), dpi=92)
+        a = self.f.add_subplot(111)
+        a.plot([1, 2, 2.2, 3, 4])
+        a.set_title('Grind Times')
+        a.set_xlabel('Dates')
+        a.set_ylabel('Duration')
+        self.dataplot = FigureCanvasTkAgg(self.f, master=self.bottom_frame)
+        self.dataplot.show()
+        self.dataplot.get_tk_widget().grid(columnspan=5, sticky='nesw')
 
     def add_file_menu(self, parent):
         menubar = tk.Menu(parent, tearoff=1)
