@@ -1,6 +1,7 @@
 import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
+import datetime
 
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
 from matplotlib.figure import Figure
@@ -58,15 +59,20 @@ class Grind(GUI):
         parent.config(menu=self.add_file_menu(parent))
 
         # plot
-        self.f = Figure(figsize=(5, 4), dpi=92)
-        a = self.f.add_subplot(111)
-        a.plot([1, 2, 2.2, 3, 4])
-        a.set_title('Grind Times')
-        a.set_xlabel('Dates')
-        a.set_ylabel('Duration')
+        self.f = Figure(figsize=(4, 5), dpi=72, tight_layout=True)
+        self.a = self.f.add_subplot(111)
+        self.a.plot([])
+        self.a.set_title('Grind Times')
+        self.a.set_xlabel('Grind #')
+        self.a.set_ylabel('Duration (minutes)')
         self.dataplot = FigureCanvasTkAgg(self.f, master=self.bottom_frame)
         self.dataplot.show()
         self.dataplot.get_tk_widget().grid(columnspan=5, sticky='nesw')
+
+    @staticmethod
+    def get_time(_time, second_breakdown=60):
+        hours, minutes, seconds = _time.split(":")
+        return (int(hours)*3600+int(minutes)*60+int(seconds))/second_breakdown
 
     def add_file_menu(self, parent):
         menubar = tk.Menu(parent, tearoff=1)
@@ -210,21 +216,36 @@ class Grind(GUI):
                           grind['start'],
                           grind['end'],
                           grind['time']] for grind in grinds]
-
+            collector = sorted(collector, key=lambda x: x[0])
             self._build_treeview(self.tree_grind, self.headers, collector)
+            times = [self.get_time(grind[3]) for grind in collector]
+            self._update_plot(times)
+
+    def _update_plot(self, times):
+        self.a.clear()
+        self.a.set_title('Grind Times')
+        self.a.set_xlabel('Grind #')
+        self.a.set_ylabel('Duration (minutes)')
+        self.a.plot(times)
+        self.dataplot.show()
 
     def sortby(self, tree, col, descending):
         """sort tree contents when a column header is clicked on"""
+
         # grab values to sort
         data = [(tree.set(child, col), child) for child in tree.get_children('')]
         # if the data to be sorted is numeric change to float
         # data =  change_numeric(data)
         # now sort the data in place
         data.sort(reverse=descending)
+
         for ix, item in enumerate(data):
             tree.move(item[1], '', ix)
         # switch the heading so it will sort in the opposite direction
         tree.heading(col, command=lambda col=col: self.sortby(tree, col, int(not descending)))
+
+        times = [self.get_time(tree.set(child, "Time")) for child in tree.get_children('')]
+        self._update_plot(times)
 
 
 def my_grind_app_attempt_02():
