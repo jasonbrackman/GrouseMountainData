@@ -75,9 +75,9 @@ class Grind(GUI):
         self.a = self.f.add_subplot(111)
 
         self.a.spines["top"].set_visible(False)
-        self.a.spines["bottom"].set_visible(False)
+        self.a.spines["bottom"].set_color('grey')
         self.a.spines["right"].set_visible(False)
-        self.a.spines["left"].set_visible(False)
+        self.a.spines["left"].set_color('grey')
 
         self.a.plot([])
         self.a.set_title('Grind Times')
@@ -267,14 +267,20 @@ class Grind(GUI):
             label.set_linewidth(1.5)  # the legend line width
         self.dataplot.show()
 
+    def _test_data(self, data):
+        for x, y in data:
+            print(x)
+
     def sortby(self, tree, col, descending):
         """sort tree contents when a column header is clicked on"""
 
         # grab values to sort
         data = [(tree.set(child, col), child) for child in tree.get_children('')]
+
         # if the data to be sorted is numeric change to float
         # data =  change_numeric(data)
         # now sort the data in place
+        self._test_data(data)
         data.sort(reverse=descending)
 
         for ix, item in enumerate(data):
