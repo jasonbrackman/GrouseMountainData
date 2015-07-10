@@ -59,12 +59,36 @@ class Grind(GUI):
         parent.config(menu=self.add_file_menu(parent))
 
         # plot
-        self.f = Figure(figsize=(4, 5), dpi=72, tight_layout=True)
+        # These are the "Tableau 20" colors as RGB.
+        self.tableau20 = [(31, 119, 180), (174, 199, 232), (255, 127, 14), (255, 187, 120),
+                          (44, 160, 44), (152, 223, 138), (214, 39, 40), (255, 152, 150),
+                          (148, 103, 189), (197, 176, 213), (140, 86, 75), (196, 156, 148),
+                          (227, 119, 194), (247, 182, 210), (127, 127, 127), (199, 199, 199),
+                          (188, 189, 34), (219, 219, 141), (23, 190, 207), (158, 218, 229)]
+
+        # Scale the RGB values to the [0, 1] range, which is the format matplotlib accepts.
+        for i in range(len(self.tableau20)):
+            r, g, b = self.tableau20[i]
+            self.tableau20[i] = (r / 255., g / 255., b / 255.)
+
+        self.f = Figure(figsize=(9, 4.5), dpi=65, facecolor='white', frameon=True, tight_layout=True)
         self.a = self.f.add_subplot(111)
+
+        self.a.spines["top"].set_visible(False)
+        self.a.spines["bottom"].set_visible(False)
+        self.a.spines["right"].set_visible(False)
+        self.a.spines["left"].set_visible(False)
+
         self.a.plot([])
         self.a.set_title('Grind Times')
         self.a.set_xlabel('Grind #')
         self.a.set_ylabel('Duration (minutes)')
+        # Ensure that the axis ticks only show up on the bottom and left of the plot.
+        # Ticks on the right and top of the plot are generally unnecessary chartjunk.
+        self.a.get_xaxis().tick_bottom()
+        self.a.get_yaxis().tick_left()
+        # Remove the tick marks; they are unnecessary with the tick lines we just plotted.
+        self.a.tick_params(axis="both", which="both", bottom="off", top="off", labelbottom="on", left="off", right="off", labelleft="on")
         self.dataplot = FigureCanvasTkAgg(self.f, master=self.bottom_frame)
         self.dataplot.show()
         self.dataplot.get_tk_widget().grid(columnspan=5, sticky='nesw')
@@ -219,14 +243,28 @@ class Grind(GUI):
             collector = sorted(collector, key=lambda x: x[0])
             self._build_treeview(self.tree_grind, self.headers, collector)
             times = [self.get_time(grind[3]) for grind in collector]
-            self._update_plot(times)
+            self._update_plot(times, label=value)
 
-    def _update_plot(self, times):
-        self.a.clear()
+    def _update_plot(self, times, label="unknown"):
+        import random
+        # self.a.clear()
         self.a.set_title('Grind Times')
         self.a.set_xlabel('Grind #')
         self.a.set_ylabel('Duration (minutes)')
-        self.a.plot(times)
+        self.a.plot(times, label=label, color=self.tableau20[random.randint(0, 19)])
+        # Now add the legend with some customizations.
+        legend = self.a.legend(loc='upper center', shadow=True)
+
+        # The frame is matplotlib.patches.Rectangle instance surrounding the legend.
+        frame = legend.get_frame()
+        frame.set_facecolor('0.90')
+
+        # Set the fontsize
+        for label in legend.get_texts():
+            label.set_fontsize('large')
+
+        for label in legend.get_lines():
+            label.set_linewidth(1.5)  # the legend line width
         self.dataplot.show()
 
     def sortby(self, tree, col, descending):
@@ -244,6 +282,7 @@ class Grind(GUI):
         # switch the heading so it will sort in the opposite direction
         tree.heading(col, command=lambda col=col: self.sortby(tree, col, int(not descending)))
 
+        # Update the plot line
         times = [self.get_time(tree.set(child, "Time")) for child in tree.get_children('')]
         self._update_plot(times)
 
