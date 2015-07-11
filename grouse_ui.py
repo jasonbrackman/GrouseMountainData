@@ -1,7 +1,7 @@
 import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
-import datetime
+import time
 
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
 from matplotlib.figure import Figure
@@ -33,14 +33,14 @@ class Grind(GUI):
     def __init__(self, parent):
         self.gui = GUI.__init__(self, parent)
 
-        parent.title("Grouse Grind App 0.2b")
+        parent.title("Grouse Grind App 0.3")
         # Expensive Operation: get grind info
         self.grinders = account.load_json_data()
 
         # search bar
         self.var_search = tk.StringVar()
         self.var_search.trace("w", lambda name, index, mode: self.update_list())
-        self.entry_search = tk.Entry(self.mid_frame, textvariable=self.var_search, width=34)
+        self.entry_search = tk.Entry(self.mid_frame, textvariable=self.var_search, width=37)
         self.entry_search.grid(row=1, column=0, sticky='nsew', pady=2, padx=2)
 
         # list of grinders
@@ -103,6 +103,7 @@ class Grind(GUI):
         filemenu = tk.Menu(menubar)
         filemenu.add_command(label="Update Account", command=self._update_account)
         filemenu.add_command(label="Save Changes", command=self._save_changes)
+        filemenu.add_command(label="Clear Plots", command=self._clear_plots)
         menubar.add_cascade(label="File", menu=filemenu)
 
         return menubar
@@ -125,6 +126,10 @@ class Grind(GUI):
             for grind in grinds:
                 if grind not in self.grinders[uuid]['grinds']:
                     self.grinders[uuid]['grinds'].append(grind)
+
+    def _clear_plots(self):
+        self.a.clear()
+        self.dataplot.show()
 
     def update_list(self):
         search_term = self.var_search.get()
@@ -171,23 +176,18 @@ class Grind(GUI):
         return tree
 
     def _build_treeview(self, tree, columns, rows):
-        width = 82
         for i in tree.get_children():
             tree.delete(i)
 
         for col in columns:
             tree.heading(col, text=col.title(), command=lambda c=col: self.sortby(tree, c, 0))
-            # adjust the column's width to the header string
-            tree.column(col, width=width)  # tkFont.Font().measure(col.title()))
+            tree.column(col)
 
         for row in rows:
             tree.insert('', 'end', values=row)
             # adjust column's width if necessary to fit each value
             for ix, val in enumerate(row):
-                # col_w = tkFont.Font().measure(val)
-                col_w = width
-                if tree.column(columns[ix], width=None) < col_w:
-                    tree.column(columns[ix], width=col_w)
+                tree.column(columns[ix])
 
     def get_grouse_grind_names(self, clean_data_only=True):
         names = [data['name'] for uuid, data in self.grinders.items()]
@@ -237,8 +237,8 @@ class Grind(GUI):
 
         if grinds is not None:
             collector = [[grind['date'],
-                          grind['start'],
-                          grind['end'],
+                          self.convert_to_military_time(grind['start']),
+                          self.convert_to_military_time(grind['end']),
                           grind['time']] for grind in grinds]
             collector = sorted(collector, key=lambda x: x[0])
             self._build_treeview(self.tree_grind, self.headers, collector)
@@ -246,14 +246,24 @@ class Grind(GUI):
             self._update_plot(times, label=value)
 
     def _update_plot(self, times, label="unknown"):
+        import numpy
         import random
         # self.a.clear()
         self.a.set_title('Grind Times')
         self.a.set_xlabel('Grind #')
         self.a.set_ylabel('Duration (minutes)')
         self.a.plot(times, label=label, color=self.tableau20[random.randint(0, 19)])
+
+        # create a mean line
+        y_mean = [numpy.mean(times) for i in times]
+        if len(y_mean) > 0:
+            self.a.plot(y_mean, label='Mean ({0:.2f}m)'.format(y_mean[0]), linestyle='--')
+        y_floor = [min(times) for i in times]
+        if len(y_floor) > 0:
+            self.a.plot(y_floor, label='Best ({0:.2f}m)'.format(y_floor[0]), linestyle=':')
+
         # Now add the legend with some customizations.
-        legend = self.a.legend(loc='upper center', shadow=True)
+        legend = self.a.legend(loc='upper right', framealpha=0.0, shadow=False)
 
         # The frame is matplotlib.patches.Rectangle instance surrounding the legend.
         frame = legend.get_frame()
@@ -267,9 +277,13 @@ class Grind(GUI):
             label.set_linewidth(1.5)  # the legend line width
         self.dataplot.show()
 
-    def _test_data(self, data):
-        for x, y in data:
-            print(x)
+    @staticmethod
+    def convert_to_military_time(standard):
+        struct_time = time.strptime(standard,  '%I:%M:%S %p')
+        military_time = "{0:02d}:{1:02d}:{2:02d}".format(struct_time.tm_hour,
+                                                         struct_time.tm_min,
+                                                         struct_time.tm_sec)
+        return military_time
 
     def sortby(self, tree, col, descending):
         """sort tree contents when a column header is clicked on"""
@@ -277,10 +291,7 @@ class Grind(GUI):
         # grab values to sort
         data = [(tree.set(child, col), child) for child in tree.get_children('')]
 
-        # if the data to be sorted is numeric change to float
-        # data =  change_numeric(data)
         # now sort the data in place
-        self._test_data(data)
         data.sort(reverse=descending)
 
         for ix, item in enumerate(data):
@@ -290,7 +301,8 @@ class Grind(GUI):
 
         # Update the plot line
         times = [self.get_time(tree.set(child, "Time")) for child in tree.get_children('')]
-        self._update_plot(times)
+        if len(times) > 0:
+            self._update_plot(times)
 
 
 def my_grind_app_attempt_02():
