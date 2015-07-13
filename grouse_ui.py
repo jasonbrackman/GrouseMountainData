@@ -2,8 +2,8 @@ import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
-# from matplotlib.dates import date2num
 import numpy
+import random
 import time
 import datetime
 import account
@@ -219,11 +219,12 @@ class Grind(GUI):
 
     # -- ListBox ---------------------------------------------------------------------------
     def populate_listbox(self):
+        _min = 0 if self.sbx_grinds_min.get() == '' else int(self.sbx_grinds_min.get())
+        _max = 0 if self.sbx_grinds_max.get() == '' else int(self.sbx_grinds_max.get())
+
         try:
             names = [name for name, grinds in self.names_and_grinds
-                     if (grinds is not None and
-                         len(grinds) >= int(self.sbx_grinds_min.get()) and
-                         len(grinds) <= int(self.sbx_grinds_max.get()))]
+                     if grinds is not None and _min <= len(grinds) <= _max]
             names.sort()
             search_term = self.var_search.get()
 
@@ -235,7 +236,7 @@ class Grind(GUI):
             for i in range(0, len(items), 2):
                 self.listbox_names.itemconfigure(i, background='#f0f0ff')
         except Exception as e:
-            print("something failed")
+            print(e)
 
     def create_listbox(self, master, items=None, column=0):
         listbox = tk.Listbox(master, height=15, width=35)
@@ -281,11 +282,16 @@ class Grind(GUI):
             tree.heading(col, text=col.title(), command=lambda c=col: self.sortby(tree, c, 0))
             tree.column(col)
 
-        for row in rows:
-            tree.insert('', 'end', values=row)
+        for index, row in enumerate(rows):
+            if index % 2 == 0:
+                tree.insert('', 'end', values=row, tags = ('odd',))
+            else:
+                tree.insert('', 'end', values=row, tags = ('even',))
             # adjust column's width if necessary to fit each value
             for ix, val in enumerate(row):
                 tree.column(columns[ix])
+
+        tree.tag_configure('odd', background='#f0f0ff')
 
     def sortby(self, tree, col, descending):
         """sort tree contents when a column header is clicked on"""
@@ -366,8 +372,6 @@ class Grind(GUI):
             self._update_plot(times, label=value)
 
     def _update_plot(self, y, label="unknown", legend=True):
-
-        import random
         # self.a.clear()
         self.a.set_title('Minutes To Complete Grouse Grind Plotted By Attempt')
         self.a.set_xlabel('Attempt')
@@ -382,7 +386,7 @@ class Grind(GUI):
         self.a.set_ybound([min(y) - 10, max(y) + 10])
 
         if "ignore" not in label:
-            point, = self.a.plot(y, 'o-', label=label, color=self.tableau20[random.randint(0, 19)], picker=5)
+            point, = self.a.plot(y, 'o-', label=label, color=self.tableau20[random.randint(0, 19)])
             self.annotate_plot_points(point, y, label, self.axes, self.annotations)
             if legend:
                 """
@@ -413,7 +417,7 @@ class Grind(GUI):
 def grouse_grind_app():
     root = tk.Tk()
     root.title("Grouse Grind App 0.3")
-    root.geometry("720x500")
+    # root.geometry("720x500")
     Grind(root)
     root.mainloop()
 
