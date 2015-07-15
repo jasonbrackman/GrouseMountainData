@@ -2,6 +2,7 @@ import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
+from matplotlib.dates import date2num, num2date
 import numpy
 import random
 import time
@@ -42,8 +43,8 @@ class Grind(GUI):
         self.var_search = tk.StringVar()
         self.var_min = tk.StringVar()
         self.var_max = tk.StringVar()
-        self.var_min.set("20")
-        self.var_max.set("80")
+        self.var_min.set("10")
+        self.var_max.set("300")
 
         # Expensive Operation: get grind info
         self.grinders = account.load_json_data()
@@ -95,6 +96,13 @@ class Grind(GUI):
         self.f = plt.figure(figsize=(6, 4), dpi=70, facecolor='white', frameon=True, tight_layout=True)
         self.axes = plt.axes()
         self.a = self.f.add_subplot(111)
+        self.a.set_title('Minutes To Complete Grouse Grind Plotted By Attempt')
+        self.a.set_xlabel('\n.')
+        self.a.set_ylabel('Duration (minutes)')
+        # Where did the data come from?
+        self.a.text(0, -0.5, "Data source: https://www.grousemountain.com/grind_stats",
+                    transform=self.a.transAxes,
+                    fontsize=11)
 
         self.a.spines["top"].set_visible(False)
         self.a.spines["bottom"].set_color('grey')
@@ -106,17 +114,18 @@ class Grind(GUI):
         self.a.get_yaxis().tick_left()
 
         self.dataplot = FigureCanvasTkAgg(self.f, master=self.bottom_frame)
-        # self.f.canvas.mpl_connect('pick_event', self.test1)
+
+        # hover callback setup here.
         self.f.canvas.mpl_connect('motion_notify_event', self.on_move)
 
         self.dataplot.show()
         self.dataplot.get_tk_widget().grid(columnspan=5, sticky='nesw')
-        self._update_plot([], label="ignore")
+        self._update_plot([], label=None)
 
         self.annotations = []
 
-    def annotate_plot_points(self, point, y, label, axes, annotations):
-        for index_x, index_y in enumerate(y):
+    def annotate_plot_points(self, point, x, y, label, axes, annotations):
+        for index_x, index_y in zip(x, y):
             current = self.convert_seconds_to_timedelta(index_y)
             best = self.convert_seconds_to_timedelta(min(y))
             mean = self.convert_seconds_to_timedelta(numpy.mean(y))
@@ -310,7 +319,7 @@ class Grind(GUI):
         # Update the plot line
         times = [self.convert_timedelta_to_seconds(tree.set(child, "Time")) for child in tree.get_children('')]
         if len(times) > 0:
-            self._update_plot(times)
+            self._update_plot(times, label="")
 
     # -- Data Management
     def get_account_names_and_grinds(self, clean_data_only=True):
@@ -369,25 +378,25 @@ class Grind(GUI):
             collector = sorted(collector, key=lambda x: x[0])
             self.populate_treeview(self.tree_grind, self.headers, collector)
             times = [self.convert_timedelta_to_seconds(grind[3]) for grind in collector]
-            self._update_plot(times, label=value)
+            self._update_plot(collector, label=value)
+            #self._update_plot(times, label=value)
 
-    def _update_plot(self, y, label="unknown", legend=True):
+    def _update_plot(self, data, label=None, legend=True):
         # self.a.clear()
-        self.a.set_title('Minutes To Complete Grouse Grind Plotted By Attempt')
-        self.a.set_xlabel('Attempt')
-        self.a.set_ylabel('Duration (minutes)')
-        # Where did the data come from?
-        self.a.text(0, -0.18, "Data source: https://www.grousemountain.com/grind_stats",
-                    transform=self.a.transAxes,
-                    fontsize=11)
+        dates = [date2num(datetime.datetime.strptime(grind[0], "%Y-%m-%d")) for grind in data]
+        times = [self.convert_timedelta_to_seconds(grind[3]) for grind in data]
 
+        """
         if y is None or len(y) == 0:
             y = [40]
-        self.a.set_ybound([min(y) - 10, max(y) + 10])
 
-        if "ignore" not in label:
-            point, = self.a.plot(y, 'o-', label=label, color=self.tableau20[random.randint(0, 19)])
-            self.annotate_plot_points(point, y, label, self.axes, self.annotations)
+        self.a.set_ybound([min(y) - 10, max(y) + 10])
+        """
+
+        if label is not None:
+            point, = self.a.plot(dates, times, 'o-', label=label, color=self.tableau20[random.randint(0, 19)])
+
+            self.annotate_plot_points(point, dates, times, label, self.axes, self.annotations)
             if legend:
                 """
                 y_mean = [numpy.mean(y) for _ in y]
@@ -410,7 +419,14 @@ class Grind(GUI):
 
                 for label in legend.get_lines():
                     label.set_linewidth(1.5)  # the legend line width
+        items = self.a.get_xticks().tolist()
 
+        # matplotlib date format object
+        from matplotlib import dates
+        hfmt = dates.DateFormatter('%Y-%m-%d')
+        if items[0] > 1:
+            self.a.set_xticklabels([num2date(item) for item in items if int(item) > 1], rotation=42, fontsize=11)
+            self.a.xaxis.set_major_formatter(hfmt)
         self.dataplot.show()
 
 
