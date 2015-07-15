@@ -179,10 +179,12 @@ def collect_account_numbers(min, max, step):
 
     def get_unknown_uuids(min, max, step, _accounts):
         # accounts seem to end in:
-        options = [5000,
-                   15000,
+        options = [7000,
+                   17000,
                    6000,
                    16000,
+                   5000,
+                   15000,
                    4000,
                    14000,
                    3000,
@@ -221,12 +223,12 @@ def collect_account_numbers(min, max, step):
         dump_json_data(accounts)
 
 if __name__ == "__main__":
-    # uuid = 22597005000
+    # uuid = <any valid account>
     # print(get_grind_data(uuid))
 
     # x = collect_grind_times([], 22597005000, page=1)
     # print(len(x))
 
-    collect_account_numbers(10000000000, 68000000000, 1000000)
+    collect_account_numbers(10000000000, 11000000000, 100000)
 
     pass
