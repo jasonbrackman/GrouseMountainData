@@ -39,6 +39,7 @@ class Grind(GUI):
         # file menu
         parent.config(menu=self.add_file_menu(parent))
 
+        self.plot_attempts = True
         # required vars
         self.var_search = tk.StringVar()
         self.var_min = tk.StringVar()
@@ -63,7 +64,7 @@ class Grind(GUI):
         self.entry_search.grid(row=1, column=2, sticky='ns', pady=0, padx=0)
 
         # listbox UI and contents
-        self.listbox_names = self.create_listbox(self.bottom_frame, items=self.names_and_grinds, column=0)
+        self.listbox_names = self.create_listbox(self.bottom_frame, column=0)
         self.populate_listbox()
         self.listbox_names.bind("<<ListboxSelect>>", self.display_grinds_for_tree)
 
@@ -96,7 +97,7 @@ class Grind(GUI):
         self.f = plt.figure(figsize=(6, 4), dpi=70, facecolor='white', frameon=True, tight_layout=True)
         self.axes = plt.axes()
         self.a = self.f.add_subplot(111)
-        self.a.set_title('Minutes To Complete Grouse Grind Plotted By Attempt')
+        # self.a.set_title('Minutes To Complete Grouse Grind Plotted By Attempt')
         self.a.set_xlabel('\n.')
         self.a.set_ylabel('Duration (minutes)')
         # Where did the data come from?
@@ -178,13 +179,18 @@ class Grind(GUI):
         menubar = tk.Menu(parent, tearoff=1)
         filemenu = tk.Menu(menubar)
         filemenu.add_command(label="Update Account", command=self._update_account)
-        filemenu.add_command(label="Load Account", command=self._load_account)
+        # filemenu.add_command(label="Load Account", command=self._load_account)
         filemenu.add_command(label="Save Changes", command=self._save_changes)
         filemenu.add_command(label="Clear Plots", command=self._clear_plots)
         filemenu.add_command(label="Plot Everything", command=self._plot_everything)
+        filemenu.add_command(label="Switch Plot Type", command=self._switch_plot)
         menubar.add_cascade(label="File", menu=filemenu)
 
         return menubar
+
+    def _switch_plot(self):
+        self.a.clear()
+        self.plot_attempts = not self.plot_attempts
 
     def _load_account(self):
         self.grinders = account.load_json_data()
@@ -247,7 +253,7 @@ class Grind(GUI):
         except Exception as e:
             print(e)
 
-    def create_listbox(self, master, items=None, column=0):
+    def create_listbox(self, master, column=0):
         listbox = tk.Listbox(master, height=15, width=35)
         listbox.grid(column=column, row=0, rowspan=2, stick='news')
         master.grid_columnconfigure(column, weight=0)
@@ -324,11 +330,11 @@ class Grind(GUI):
     # -- Data Management
     def get_account_names_and_grinds(self, clean_data_only=True):
         info = [(data['name'], data['grinds']) for uuid, data in self.grinders.items()]
-
+        print("Number of Accounts: {}".format(len(info)))
         if clean_data_only:
             info = [(name, grinds) for name, grinds in info
                     if "Not Found" not in name and "Service Unavailable" not in name]
-
+        print("Number of Grinders Indexed: {}".format(len(info)))
         return info
 
     def _get_grinds(self, value):
@@ -386,26 +392,23 @@ class Grind(GUI):
         dates = [date2num(datetime.datetime.strptime(grind[0], "%Y-%m-%d")) for grind in data]
         times = [self.convert_timedelta_to_seconds(grind[3]) for grind in data]
 
-        """
-        if y is None or len(y) == 0:
-            y = [40]
-
-        self.a.set_ybound([min(y) - 10, max(y) + 10])
-        """
-
         if label is not None:
-            point, = self.a.plot(dates, times, 'o-', label=label, color=self.tableau20[random.randint(0, 19)])
+            if self.plot_attempts:
+                dates = [x for x, y in enumerate(dates)]
+                point, = self.a.plot(dates, times, 'o-', label=label, color=self.tableau20[random.randint(0, 19)])
+            else:
+                point, = self.a.plot(dates, times, 'o-', label=label, color=self.tableau20[random.randint(0, 19)])
+
+                # matplotlib date format object
+                hfmt = matplotlib.dates.DateFormatter('%Y-%m-%d')
+                items = self.a.get_xticks().tolist()
+                if items[0] > 1:
+                    self.a.set_xticklabels([num2date(item) for item in items if int(item) > 1], rotation=42, fontsize=11)
+                    self.a.xaxis.set_major_formatter(hfmt)
 
             self.annotate_plot_points(point, dates, times, label, self.axes, self.annotations)
+
             if legend:
-                """
-                y_mean = [numpy.mean(y) for _ in y]
-                if len(y_mean) > 0:
-                    self.a.plot(y_mean, label='Mean ({0:.2f}m)'.format(y_mean[0]), linestyle='--')
-                y_floor = [min(y) for _ in y]
-                if len(y_floor) > 0:
-                    self.a.plot(y_floor, label='Best ({0:.2f}m)'.format(y_floor[0]), linestyle=':')
-                """
                 # Now add the legend with some customizations.
                 legend = self.a.legend(loc='upper right', framealpha=0.0, shadow=False)
 
@@ -419,20 +422,14 @@ class Grind(GUI):
 
                 for label in legend.get_lines():
                     label.set_linewidth(1.5)  # the legend line width
-        items = self.a.get_xticks().tolist()
-
-        # matplotlib date format object
-        from matplotlib import dates
-        hfmt = dates.DateFormatter('%Y-%m-%d')
-        if items[0] > 1:
-            self.a.set_xticklabels([num2date(item) for item in items if int(item) > 1], rotation=42, fontsize=11)
-            self.a.xaxis.set_major_formatter(hfmt)
+        plot_type = "Attempt" if self.plot_attempts else "Dates"
+        self.a.set_title('Minutes To Complete Grouse Grind Plotted By {}'.format(plot_type))
         self.dataplot.show()
 
 
 def grouse_grind_app():
     root = tk.Tk()
-    root.title("Grouse Grind App 0.3")
+    root.title("Grouse Grind App 0.4")
     # root.geometry("720x500")
     Grind(root)
     root.mainloop()

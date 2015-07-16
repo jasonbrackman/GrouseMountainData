@@ -179,18 +179,13 @@ def collect_account_numbers(min, max, step):
 
     def get_unknown_uuids(min, max, step, _accounts):
         # accounts seem to end in:
-        options = [7000,
-                   17000,
-                   6000,
-                   16000,
-                   5000,
-                   15000,
-                   4000,
-                   14000,
-                   3000,
-                   13000,
-                   2000,
-                   12000]
+        options = [8000, # 18000,
+                   7000, 17000,
+                   6000, 16000,
+                   5000, 15000,
+                   4000, 14000,
+                   3000, 13000,
+                   2000, 12000]
 
         numbers = list()
         for option in options:
@@ -199,7 +194,7 @@ def collect_account_numbers(min, max, step):
                 if str(number) not in _accounts.keys():
                     print("[info] Found an uncollected number: {}".format(number))
                     numbers.append(number)
-        print(len(numbers))
+        print("[info] New numbers found: {}".format(len(numbers)))
         return numbers
 
     dirty = False
@@ -229,6 +224,6 @@ if __name__ == "__main__":
     # x = collect_grind_times([], 22597005000, page=1)
     # print(len(x))
 
-    collect_account_numbers(10000000000, 11000000000, 100000)
+    collect_account_numbers(10000000000, 21000000000, 1000000)
 
     pass
