@@ -69,9 +69,9 @@ class Grind(GUI):
         self.listbox_names.bind("<<ListboxSelect>>", self.display_grinds_for_tree)
 
         # setup Traces
-        self.var_min.trace("w", lambda x,y,z: self.populate_listbox())
-        self.var_max.trace("w", lambda x,y,z: self.populate_listbox())
-        self.var_search.trace("w", lambda x,y,z: self.populate_listbox())
+        self.var_min.trace("w", lambda x, y, z: self.populate_listbox())
+        self.var_max.trace("w", lambda x, y, z: self.populate_listbox())
+        self.var_search.trace("w", lambda x, y, z: self.populate_listbox())
 
         # Setup Treeviews
         self.headers_01 = ["Age", "Sex"]
@@ -94,16 +94,14 @@ class Grind(GUI):
             r, g, b = self.tableau20[i]
             self.tableau20[i] = (r / 255., g / 255., b / 255.)
 
-        self.f = plt.figure(figsize=(6, 4), dpi=70, facecolor='white', frameon=True, tight_layout=True)
+        self.f = plt.figure(figsize=(5, 6), dpi=70, facecolor='white', frameon=True)#, tight_layout=True)
         self.axes = plt.axes()
         self.a = self.f.add_subplot(111)
-        # self.a.set_title('Minutes To Complete Grouse Grind Plotted By Attempt')
-        self.a.set_xlabel('\n.')
-        self.a.set_ylabel('Duration (minutes)')
         # Where did the data come from?
-        self.a.text(0, -0.5, "Data source: https://www.grousemountain.com/grind_stats",
+        self.a.text(0, -0.45, "Data source: https://www.grousemountain.com/grind_stats",
                     transform=self.a.transAxes,
                     fontsize=11)
+        self.f.subplots_adjust(bottom=0.35, left=0.1, right=0.8, top=0.9)
 
         self.a.spines["top"].set_visible(False)
         self.a.spines["bottom"].set_color('grey')
@@ -228,9 +226,9 @@ class Grind(GUI):
                                   self.convert_standard_to_military_time(grind['end']),
                                   grind['time']] for grind in grinds]
                     collector = sorted(collector, key=lambda x: x[0])
-                    times = [self.convert_timedelta_to_seconds(grind[3]) for grind in collector]
-                    times = [x for x in times if x < 150]
-                    self._update_plot(times, label=data['name'], legend=False)
+                    # times = [self.convert_timedelta_to_seconds(grind[3]) for grind in collector]
+                    # times = [x for x in times if x < 150]
+                    self._update_plot(collector, label=data['name'], legend=False)
 
     # -- ListBox ---------------------------------------------------------------------------
     def populate_listbox(self):
@@ -334,7 +332,7 @@ class Grind(GUI):
         if clean_data_only:
             info = [(name, grinds) for name, grinds in info
                     if "Not Found" not in name and "Service Unavailable" not in name]
-        print("Number of Grinders Indexed: {}".format(len(info)))
+        print("Number of valid accounts loaded: {}".format(len(info)))
         return info
 
     def _get_grinds(self, value):
@@ -410,7 +408,7 @@ class Grind(GUI):
 
             if legend:
                 # Now add the legend with some customizations.
-                legend = self.a.legend(loc='upper right', framealpha=0.0, shadow=False)
+                legend = self.a.legend(loc='upper right', bbox_to_anchor=(1.2, 1), framealpha=0.0, shadow=False)
 
                 # The frame is matplotlib.patches.Rectangle instance surrounding the legend.
                 frame = legend.get_frame()
@@ -424,6 +422,7 @@ class Grind(GUI):
                     label.set_linewidth(1.5)  # the legend line width
         plot_type = "Attempt" if self.plot_attempts else "Dates"
         self.a.set_title('Minutes To Complete Grouse Grind Plotted By {}'.format(plot_type))
+        self.a.set_ylabel('Duration (minutes)')
         self.dataplot.show()
 
 
