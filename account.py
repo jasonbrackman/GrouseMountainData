@@ -174,6 +174,26 @@ def create_account(_accounts, uuid, username):
     return accounts
 """
 
+def thread_collect_accounts(accounts, numbers, pool=4):
+    dirty = False
+    with concurrent.futures.ProcessPoolExecutor(pool) as executor:
+        futures = [executor.submit(get_grind_data, number) for number in numbers]
+        concurrent.futures.wait(futures)
+        results = [future.result() for future in concurrent.futures.as_completed(futures)]
+        for result in results:
+            if result is not None:
+                print(result)
+                accounts = add_account(accounts,
+                                       uuid=result[0],
+                                       name=result[1],
+                                       age=result[2],
+                                       sex=result[3],
+                                       grinds=result[4])
+                dirty = True
+
+    if dirty:
+        dump_json_data(accounts)
+
 def collect_account_numbers(min, max, step):
     accounts = load_json_data()
 
@@ -196,26 +216,39 @@ def collect_account_numbers(min, max, step):
                     numbers.append(number)
         print("[info] New numbers found: {}".format(len(numbers)))
         return numbers
-
-    dirty = False
-    pool = 4
     numbers = get_unknown_uuids(min, max, step, accounts)
-    with concurrent.futures.ProcessPoolExecutor(pool) as executor:
-        futures = [executor.submit(get_grind_data, number) for number in numbers]
-        concurrent.futures.wait(futures)
-        results = [future.result() for future in concurrent.futures.as_completed(futures)]
-        for result in results:
-            if result is not None:
-                accounts = add_account(accounts,
-                                       uuid=result[0],
-                                       name=result[1],
-                                       age=result[2],
-                                       sex=result[3],
-                                       grinds=results[4])
-                dirty = True
 
-    if dirty:
-        dump_json_data(accounts)
+    thread_collect_accounts(accounts, numbers)
+
+def recheck_names(with_name):
+    accounts = load_json_data()
+    numbers = [int(uuid) for uuid, data in accounts.items() if data['name'] == with_name]
+    print(numbers)
+    print("[info] '{}' numbers found: {}".format(with_name, len(numbers)))
+    print("Numbers: {}".format(numbers))
+    thread_collect_accounts(accounts, numbers, pool=1)
+
+def split_accounts():
+    accounts = load_json_data()
+    collection = [(uuid, data) for uuid, data in accounts.items() if data['name'] == "Not Found"]
+
+    bad_accounts_dirty = False
+    file = os.path.expanduser("~/Documents/grousemountain_baddata.json")
+    bad_accounts = load_json_data(_storage_path=file)
+    for info in collection:
+        uuid, data = info
+        if uuid not in bad_accounts.keys():
+            bad_accounts[uuid] = data
+            bad_accounts_dirty = True
+    if bad_accounts_dirty:
+        dump_json_data(bad_accounts, _storage_path=file)
+
+    for uuid in bad_accounts.keys():
+        if uuid in accounts.keys():
+            del accounts[uuid]
+    dump_json_data(accounts)
+
+    print(len(bad_accounts))
 
 if __name__ == "__main__":
     # uuid = <any valid account>
@@ -224,6 +257,7 @@ if __name__ == "__main__":
     # x = collect_grind_times([], 22597005000, page=1)
     # print(len(x))
 
-    collect_account_numbers(10000000000, 21000000000, 1000000)
-
+    #collect_account_numbers(0000000000, 11100000000, 1000000)
+    #recheck_names("Service Unavailable")
+    #split_accounts()
     pass

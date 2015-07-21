@@ -1,9 +1,14 @@
 import matplotlib
 matplotlib.use('TkAgg')
+
+import numpy as np
+from scipy.interpolate import spline
+from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
+
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
 from matplotlib.dates import date2num, num2date
-import numpy
+
 import random
 import time
 import datetime
@@ -14,6 +19,7 @@ import tkinter.ttk as ttk
 
 class GUI:
     def __init__(self, parent):
+        self.parent = parent
         # Build main container
         self.main_container = tk.Frame(parent, background="bisque")
         self.main_container.pack(side="top", fill="both", expand=True, anchor='center')
@@ -30,6 +36,17 @@ class GUI:
         self.bottom_frame = tk.Frame(self.main_container, background="yellow")
         self.bottom_frame.pack(side="bottom", fill="both", expand=True)
 
+        # status bar
+        self.status_msg = tk.StringVar()
+        self.status_bar = tk.Label(parent, text=self.status_msg, bd=1, relief=tk.SUNKEN, anchor='w')
+        self.status_bar.pack(side="bottom", fill="x")
+        self.log("[info] Ready...")
+
+    def log(self, message):
+        print(message)
+        self.status_msg.set(message)
+        self.parent.update_idletasks()
+
 
 class Grind(GUI):
     internet_checks = False
@@ -39,7 +56,7 @@ class Grind(GUI):
         # file menu
         parent.config(menu=self.add_file_menu(parent))
 
-        self.plot_attempts = True
+        self.plot_attempts = False
         # required vars
         self.var_search = tk.StringVar()
         self.var_min = tk.StringVar()
@@ -54,9 +71,9 @@ class Grind(GUI):
         self.names_and_grinds = self.get_account_names_and_grinds()
 
         # setup spinboxes
-        self.sbx_grinds_min = tk.Spinbox(self.mid_frame, from_=0, to=1000, textvariable=self.var_min, width=4)
+        self.sbx_grinds_min = tk.Spinbox(self.mid_frame, from_=0, to=4000, textvariable=self.var_min, width=4)
         self.sbx_grinds_min.grid(row=1, column=0, sticky='ns', pady=0, padx=0)
-        self.sbx_grinds_max = tk.Spinbox(self.mid_frame, from_=0, to=1000, textvariable=self.var_max, width=4)
+        self.sbx_grinds_max = tk.Spinbox(self.mid_frame, from_=0, to=4000, textvariable=self.var_max, width=4)
         self.sbx_grinds_max.grid(row=1, column=1, sticky='ns', pady=0, padx=0)
 
         # search bar UI
@@ -68,7 +85,7 @@ class Grind(GUI):
         self.populate_listbox()
         self.listbox_names.bind("<<ListboxSelect>>", self.display_grinds_for_tree)
 
-        # setup Traces
+        # setup Traces - callbacks for what the spinners will do.
         self.var_min.trace("w", lambda x, y, z: self.populate_listbox())
         self.var_max.trace("w", lambda x, y, z: self.populate_listbox())
         self.var_search.trace("w", lambda x, y, z: self.populate_listbox())
@@ -94,28 +111,29 @@ class Grind(GUI):
             r, g, b = self.tableau20[i]
             self.tableau20[i] = (r / 255., g / 255., b / 255.)
 
-        self.f = plt.figure(figsize=(5, 6), dpi=70, facecolor='white', frameon=True)#, tight_layout=True)
-        self.axes = plt.axes()
-        self.a = self.f.add_subplot(111)
-        # Where did the data come from?
-        self.a.text(0, -0.45, "Data source: https://www.grousemountain.com/grind_stats",
-                    transform=self.a.transAxes,
-                    fontsize=11)
-        self.f.subplots_adjust(bottom=0.35, left=0.1, right=0.8, top=0.9)
+        self.figure = plt.figure(figsize=(5, 6), dpi=70, facecolor='white', frameon=True)#, tight_layout=True)
+        self.figure.subplots_adjust(bottom=0.35, left=0.05, right=0.8, top=0.9)
 
-        self.a.spines["top"].set_visible(False)
-        self.a.spines["bottom"].set_color('grey')
-        self.a.spines["right"].set_visible(False)
-        self.a.spines["left"].set_color('grey')
+        self.axes = plt.axes()
+
+        self.ax = self.figure.add_subplot(111)
+        # Where did the data come from?
+        self.ax.text(0, -0.45, "Data source: https://www.grousemountain.com/grind_stats",
+                     transform=self.ax.transAxes,
+                     fontsize=11)
+        self.ax.spines["top"].set_visible(False)
+        self.ax.spines["bottom"].set_color('grey')
+        self.ax.spines["right"].set_visible(False)
+        self.ax.spines["left"].set_color('grey')
 
         # ensure only the bottom and left ticks are visible
-        self.a.get_xaxis().tick_bottom()
-        self.a.get_yaxis().tick_left()
+        self.ax.get_xaxis().tick_bottom()
+        self.ax.get_yaxis().tick_left()
 
-        self.dataplot = FigureCanvasTkAgg(self.f, master=self.bottom_frame)
+        self.dataplot = FigureCanvasTkAgg(self.figure, master=self.bottom_frame)
 
         # hover callback setup here.
-        self.f.canvas.mpl_connect('motion_notify_event', self.on_move)
+        self.figure.canvas.mpl_connect('motion_notify_event', self.on_move)
 
         self.dataplot.show()
         self.dataplot.get_tk_widget().grid(columnspan=5, sticky='nesw')
@@ -127,7 +145,7 @@ class Grind(GUI):
         for index_x, index_y in zip(x, y):
             current = self.convert_seconds_to_timedelta(index_y)
             best = self.convert_seconds_to_timedelta(min(y))
-            mean = self.convert_seconds_to_timedelta(numpy.mean(y))
+            mean = self.convert_seconds_to_timedelta(np.mean(y))
             annotation = axes.annotate("{}\nCurrent: {}\nBest: {}\nMean:{}".format(label, current, best, mean),
                                        xy=(index_x, index_y), xycoords='data',
                                        xytext=(index_x+0.02, index_y+0.1), textcoords='data',
@@ -187,7 +205,7 @@ class Grind(GUI):
         return menubar
 
     def _switch_plot(self):
-        self.a.clear()
+        self.ax.clear()
         self.plot_attempts = not self.plot_attempts
 
     def _load_account(self):
@@ -213,7 +231,7 @@ class Grind(GUI):
                     self.grinders[uuid]['grinds'].append(grind)
 
     def _clear_plots(self):
-        self.a.clear()
+        self.ax.clear()
         self.dataplot.show()
 
     def _plot_everything(self):
@@ -260,13 +278,6 @@ class Grind(GUI):
         s.grid(column=column + 1, row=0, rowspan=2, sticky='ns')
         listbox['yscrollcommand'] = s.set
 
-        """
-        for item in items:
-            listbox.insert('end', item)
-
-        for i in range(0, len(items), 2):
-            listbox.itemconfigure(i, background='#f0f0ff')
-        """
         return listbox
 
     # -- TreeView --------------------------------------------------------------------------
@@ -329,6 +340,8 @@ class Grind(GUI):
     def get_account_names_and_grinds(self, clean_data_only=True):
         info = [(data['name'], data['grinds']) for uuid, data in self.grinders.items()]
         print("Number of Accounts: {}".format(len(info)))
+        service_unavailable = [name for name, grinds in info if "Service Unavailable" in name]
+        print("Number of 'Service Unavailable Accounts: {}".format(len(service_unavailable)))
         if clean_data_only:
             info = [(name, grinds) for name, grinds in info
                     if "Not Found" not in name and "Service Unavailable" not in name]
@@ -365,8 +378,10 @@ class Grind(GUI):
                 return self.grinders[uuid]['age'], self.grinders[uuid]['sex'], self.grinders[uuid]['grinds']
 
     def display_grinds_for_tree(self, event):
+
         widget = event.widget
         value = widget.get(widget.curselection()[0])
+        self.log("[info] UUID: {}".format(value))
         # self.tree_grind.delete(0, tk.END)  # clear
 
         age, sex, grinds = self._get_grinds(value)
@@ -389,26 +404,29 @@ class Grind(GUI):
         # self.a.clear()
         dates = [date2num(datetime.datetime.strptime(grind[0], "%Y-%m-%d")) for grind in data]
         times = [self.convert_timedelta_to_seconds(grind[3]) for grind in data]
+        if len(dates) > 0:
+            pass
 
         if label is not None:
             if self.plot_attempts:
                 dates = [x for x, y in enumerate(dates)]
-                point, = self.a.plot(dates, times, 'o-', label=label, color=self.tableau20[random.randint(0, 19)])
+                point, = self.ax.plot(dates, times, '.-', label=label, color=self.tableau20[random.randint(0, 19)])
             else:
-                point, = self.a.plot(dates, times, 'o-', label=label, color=self.tableau20[random.randint(0, 19)])
+                point, = self.ax.plot(dates, times, '.-', label=label, color=self.tableau20[random.randint(0, 19)])
+                #self.ax.scatter(dates, times)
 
                 # matplotlib date format object
                 hfmt = matplotlib.dates.DateFormatter('%Y-%m-%d')
-                items = self.a.get_xticks().tolist()
+                items = self.ax.get_xticks().tolist()
                 if items[0] > 1:
-                    self.a.set_xticklabels([num2date(item) for item in items if int(item) > 1], rotation=42, fontsize=11)
-                    self.a.xaxis.set_major_formatter(hfmt)
+                    self.ax.set_xticklabels([num2date(item) for item in items if int(item) > 1], rotation=42, fontsize=11)
+                    self.ax.xaxis.set_major_formatter(hfmt)
 
             self.annotate_plot_points(point, dates, times, label, self.axes, self.annotations)
 
             if legend:
                 # Now add the legend with some customizations.
-                legend = self.a.legend(loc='upper right', bbox_to_anchor=(1.2, 1), framealpha=0.0, shadow=False)
+                legend = self.ax.legend(loc='upper right', bbox_to_anchor=(1.2, 1), framealpha=0.0, shadow=False)
 
                 # The frame is matplotlib.patches.Rectangle instance surrounding the legend.
                 frame = legend.get_frame()
@@ -421,8 +439,8 @@ class Grind(GUI):
                 for label in legend.get_lines():
                     label.set_linewidth(1.5)  # the legend line width
         plot_type = "Attempt" if self.plot_attempts else "Dates"
-        self.a.set_title('Minutes To Complete Grouse Grind Plotted By {}'.format(plot_type))
-        self.a.set_ylabel('Duration (minutes)')
+        self.ax.set_title('Minutes To Complete Grouse Grind Plotted By {}'.format(plot_type))
+        self.ax.set_ylabel('Duration (minutes)')
         self.dataplot.show()
 
 
