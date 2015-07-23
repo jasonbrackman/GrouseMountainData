@@ -1,20 +1,28 @@
 # Why this project?
-I'm just sketching around with some data I was interested in.  I feel like this was a lot of fun --
+I'm personally interested in my Grouse Grind stats and hope to find more ways of understanding my time in comparison to
+other 'Grinders'. I was also looking for a way to expand my understanding of Github, PyCharm, and some Python libraries
+I haven't really delved into before.
 
 # Additional Details
 - This is a Python 3.x project
 - Written and tested on a Mac OSX Yosemite 10.10.4 and a Windows 7 machine.
-- On the Mac I could not get the official Python 3.4x installers to work with the program.  I had to install the Anaconda version of Python.
--- The problem was the tkinter listbox would fail with my Macbook Pro trackpad ... some callback was triggering an exception.  It was a bug that is supposed to be fixed in the official Python releases, but I couldn't get it to work.
+- On the Mac I could not get the official Python 3.4x installers to work with the program.  I had to install the
+Anaconda version of Python.
+-- The problem was the tkinter listbox would fail with my Macbook Pro trackpad.  The trackpad callback was triggering an
+exception.  It is a known bug, but is also supposed to be fixed in the official Python releases, but I couldn't get it
+to work.
 - Matplotlib, numpy are needed for UI purposes
 - BeautifulSoup4 is needed for scraping
 
 # GrouseMountainData
 If you live in Vancouver for any amount of time at all someone is bound to ask if you have hiked the Grouse Grind trail.
 
-The Grouse Grind is a 3000ft climb over approximates 3km distance.  The Grouse Mountain website claims that over 150 000 people hike the trail every year.
+The Grouse Grind is a 3000ft climb over approximates 3km distance.  The Grouse Mountain website claims that over 150 000
+people hike the trail every year.
 
-From a data collection standpoint the Grouse Mountain Resort provides those who want to spend 20 dollars on a 'Grind for Kids' card.  The 'Grind for Kids' program raises money for different causes that help children.  This year, for example, money goes to BC Children's hospital.  The cards allow users to electronically swipe in at the bottom and again at the top, so people can track their times, and possibly promote themselves to their friends, coworkers, and family to help raise money.  However, many people just do the Grind and compete to simply best themselves or even to get on a top ten list.  Each user can also log into the GrouseMountain website and check out their personal history, and some other simple stats, like your overall ranking.
+From a data collection standpoint the Grouse Mountain Resort provides those who want to spend 20 dollars on a 'Grind for
+Kids' card.  The 'Grind for Kids' program raises money for different causes that help children.  This year, for example,
+money goes to BC Children's hospital.  The cards allow users to electronically swipe in at the bottom and again at the top, so people can track their times, and possibly promote themselves to their friends, coworkers, and family to help raise money.  However, many people just do the Grind and compete to simply best themselves or even to get on a top ten list.  Each user can also log into the GrouseMountain website and check out their personal history, and some other simple stats, like your overall ranking.
 
 So I'm one of those people who like to do the Grind and am often wondering about things like:
 - How many people have done more than three grinds in a day?
