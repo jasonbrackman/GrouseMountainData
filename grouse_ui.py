@@ -57,6 +57,7 @@ class Grind(GUI):
         parent.config(menu=self.add_file_menu(parent))
 
         self.plot_attempts = False
+
         # required vars
         self.var_search = tk.StringVar()
         self.var_min = tk.StringVar()
@@ -64,6 +65,13 @@ class Grind(GUI):
         self.var_min.set("10")
         self.var_max.set("300")
 
+        #labels
+        self.lbl_min = tk.Label(self.mid_frame, text="Min:", anchor='w')
+        self.lbl_min.grid(row=0, column=0, sticky='wnse')
+        self.lbl_min = tk.Label(self.mid_frame, text="Max:", anchor='w')
+        self.lbl_min.grid(row=0, column=1, sticky='wnse')
+        self.lbl_min = tk.Label(self.mid_frame, text="Search:", anchor='w')
+        self.lbl_min.grid(row=0, column=2, columnspan=2, sticky='wnse')
         # Expensive Operation: get grind info
         self.grinders = account.load_json_data()
 
@@ -340,12 +348,15 @@ class Grind(GUI):
     def get_account_names_and_grinds(self, clean_data_only=True):
         info = [(data['name'], data['grinds']) for uuid, data in self.grinders.items()]
         print("Number of Accounts: {}".format(len(info)))
+
         service_unavailable = [name for name, grinds in info if "Service Unavailable" in name]
         print("Number of 'Service Unavailable Accounts: {}".format(len(service_unavailable)))
+
         if clean_data_only:
             info = [(name, grinds) for name, grinds in info
                     if "Not Found" not in name and "Service Unavailable" not in name]
         print("Number of valid accounts loaded: {}".format(len(info)))
+
         return info
 
     def _get_grinds(self, value):
@@ -446,7 +457,7 @@ class Grind(GUI):
 
 def grouse_grind_app():
     root = tk.Tk()
-    root.title("Grouse Grind App 0.4")
+    root.title("Grouse Grind App 0.5")
     # root.geometry("720x500")
     Grind(root)
     root.mainloop()
