@@ -6,9 +6,11 @@ import urllib.error
 import concurrent.futures
 from bs4 import BeautifulSoup
 
+
 def add_account(accounts, uuid=-1, name=None, age=None, sex=None, grinds=None):
     accounts[uuid] = {"name": name, "age": age, "sex": sex, "grinds": grinds}
     return accounts
+
 
 def collect_grind_times(grind_times, uuid, _page=1):
     """
@@ -77,25 +79,27 @@ def collect_grind_times(grind_times, uuid, _page=1):
 
     return grind_times
 
+
 def load_json_data(_storage_path=os.path.expanduser("~/Documents/grousemountaindata.json")):
     print("[LOADING] {}".format(_storage_path))
 
     # default accounts dict() to return if nothing has yet been saved to a file.
     accounts = dict()
     if os.path.isfile(_storage_path):
-        with open(_storage_path, 'r',) as handle:
+        with open(_storage_path, 'r', ) as handle:
             accounts = json.load(handle)
 
     print("[LOADING] Complete!")
 
     return accounts
 
-def dump_json_data(data, _storage_path=os.path.expanduser("~/Documents/grousemountaindata.json")):
 
+def dump_json_data(data, _storage_path=os.path.expanduser("~/Documents/grousemountaindata.json")):
     print("[SAVING] {}".format(_storage_path))
     with open(_storage_path, 'w') as handle:
         json.dump(data, handle)
     print("[SAVING] Complete!")
+
 
 def get_grind_data(number):
     root_url = "http://www.grousemountain.com/grind_stats/{}/".format(number)
@@ -142,6 +146,8 @@ def get_grind_data(number):
 
     except ConnectionResetError as e:
         print(e)
+
+
 """
 def does_account_exist(number):
     root_url = "http://www.grousemountain.com/grind_stats/{}/".format(number)  # key2"
@@ -174,7 +180,8 @@ def create_account(_accounts, uuid, username):
     return accounts
 """
 
-def thread_collect_accounts(accounts, numbers, pool=4):
+
+def thread_collect_accounts(accounts, numbers, pool=6):
     dirty = False
     with concurrent.futures.ProcessPoolExecutor(pool) as executor:
         futures = [executor.submit(get_grind_data, number) for number in numbers]
@@ -194,31 +201,41 @@ def thread_collect_accounts(accounts, numbers, pool=4):
     if dirty:
         dump_json_data(accounts)
 
+
 def collect_account_numbers(min, max, step):
     accounts = load_json_data()
+    file = os.path.expanduser("~/Documents/grousemountain_baddata.json")
+    accounts_not_found = load_json_data(_storage_path=file)
 
-    def get_unknown_uuids(min, max, step, _accounts):
+    def get_unknown_uuids(min, max, step, _accounts, options):
+        numbers = list()
+        for option in options:
+            print("Collecting: {}".format(option))
+            for number in range(min + option, max + option, step):
+                if str(number) not in _accounts.keys():
+                    print("[info] Found an uncollected number: {}".format(number))
+                    numbers.append(number)
+        print("[info] New numbers found: {}".format(len(numbers)))
+        return numbers
+
+    all_accounts = accounts.copy()
+    all_accounts.update(accounts_not_found)
+    if max > 10000000000:
         # accounts seem to end in:
-        options = [8000, # 18000,
+        options = [8000,  # 18000,
                    7000, 17000,
                    6000, 16000,
                    5000, 15000,
                    4000, 14000,
                    3000, 13000,
                    2000, 12000]
-
-        numbers = list()
-        for option in options:
-            print("Collecting: {}".format(option))
-            for number in range(min+option, max+option, step):
-                if str(number) not in _accounts.keys():
-                    print("[info] Found an uncollected number: {}".format(number))
-                    numbers.append(number)
-        print("[info] New numbers found: {}".format(len(numbers)))
-        return numbers
-    numbers = get_unknown_uuids(min, max, step, accounts)
+        numbers = get_unknown_uuids(min, max, step, all_accounts, options)
+    else:
+        options = [0]
+        numbers = get_unknown_uuids(min, max, step, all_accounts, options)
 
     thread_collect_accounts(accounts, numbers)
+
 
 def recheck_names(with_name):
     accounts = load_json_data()
@@ -227,6 +244,7 @@ def recheck_names(with_name):
     print("[info] '{}' numbers found: {}".format(with_name, len(numbers)))
     print("Numbers: {}".format(numbers))
     thread_collect_accounts(accounts, numbers, pool=1)
+
 
 def split_accounts():
     accounts = load_json_data()
@@ -250,14 +268,43 @@ def split_accounts():
 
     print(len(bad_accounts))
 
+
+def correct_bad_grinds():
+    counter = 0
+    accounts = load_json_data()
+    numbers = []
+    for uuid, data in accounts.items():
+        if data['grinds'] is not None and len(data['grinds'])>0:
+            if type(data['grinds'][0]) == int:
+                #print(uuid, data['grinds'])
+                numbers.append(uuid)
+                """
+                info = get_grind_data(uuid)
+                add_account(accounts,
+                            uuid,
+                            name=info[1],
+                            age=info[2],
+                            sex=info[3],
+                            grinds=info[4])
+                counter+=1
+            if counter == 200:
+                dump_json_data(accounts)
+                return
+                """
+    thread_collect_accounts(accounts,numbers)
+
+    print(counter)
 if __name__ == "__main__":
     # uuid = <any valid account>
     # print(get_grind_data(uuid))
 
     # x = collect_grind_times([], 22597005000, page=1)
     # print(len(x))
+    # 18014003000
 
-    #collect_account_numbers(0000000000, 11100000000, 1000000)
-    #recheck_names("Service Unavailable")
-    #split_accounts()
+    collect_account_numbers(173000, 252000, 1)
+    # recheck_names("Service Unavailable")
+    split_accounts()
+
+    #correct_bad_grinds()
     pass

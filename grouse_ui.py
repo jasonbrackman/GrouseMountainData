@@ -59,7 +59,7 @@ class Grind(GUI):
         self.var_min = tk.StringVar()
         self.var_max = tk.StringVar()
         self.var_min.set("10")
-        self.var_max.set("300")
+        self.var_max.set("1500")
 
         # labels
         self.lbl_min = tk.Label(self.mid_frame, text="Min:", anchor='w')
