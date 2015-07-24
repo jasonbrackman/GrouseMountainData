@@ -2,8 +2,6 @@ import matplotlib
 matplotlib.use('TkAgg')
 
 import numpy as np
-from scipy.interpolate import spline
-from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
 
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
@@ -43,9 +41,7 @@ class GUI:
         self.log("[info] Ready...")
 
     def log(self, message):
-        print(message)
-        self.status_msg.set(message)
-        self.parent.update_idletasks()
+        self.status_bar.configure(text=message)
 
 
 class Grind(GUI):
@@ -65,7 +61,7 @@ class Grind(GUI):
         self.var_min.set("10")
         self.var_max.set("300")
 
-        #labels
+        # labels
         self.lbl_min = tk.Label(self.mid_frame, text="Min:", anchor='w')
         self.lbl_min.grid(row=0, column=0, sticky='wnse')
         self.lbl_min = tk.Label(self.mid_frame, text="Max:", anchor='w')
