@@ -68,11 +68,10 @@ class Grind(GUI):
         self.lbl_min.grid(row=0, column=1, sticky='wnse')
         self.lbl_min = tk.Label(self.mid_frame, text="Search:", anchor='w')
         self.lbl_min.grid(row=0, column=2, columnspan=2, sticky='wnse')
+
         # Expensive Operation: get grind info
         self.grinders = account.load_json_data()
-
-        # list of grinders
-        self.names_and_grinds = self.get_account_names_and_grinds()
+        self.log("[info] Total # of accounts: {}".format(len(self.grinders)))
 
         # setup spinboxes
         self.sbx_grinds_min = tk.Spinbox(self.mid_frame, from_=0, to=4000, textvariable=self.var_min, width=4)
@@ -85,22 +84,26 @@ class Grind(GUI):
         self.entry_search.grid(row=1, column=2, sticky='ns', pady=0, padx=0)
 
         # listbox UI and contents
-        self.listbox_names = self.create_listbox(self.bottom_frame, column=0)
-        self.populate_listbox()
-        self.listbox_names.bind("<<ListboxSelect>>", self.display_grinds_for_tree)
+        info_columns = ["UUID", "Name", "Age", "Sex"]
+        # info = [(uuid, data['name'], data['sex'], data['age']) for uuid, data in self.grinders.items()]
+        info = self._get_grinders_based_on_criteria()
+        self.tree_info = self.create_treeview(self.bottom_frame, info_columns, info,
+                                              column=0, row=0, weight=0, _scrollbar=True)
+        self.tree_info.bind("<<TreeviewSelect>>", self.display_grinds_for_tree)
 
         # setup Traces - callbacks for what the spinners will do.
-        self.var_min.trace("w", lambda x, y, z: self.populate_listbox())
-        self.var_max.trace("w", lambda x, y, z: self.populate_listbox())
-        self.var_search.trace("w", lambda x, y, z: self.populate_listbox())
-
-        # Setup Treeviews
-        self.headers_01 = ["Age", "Sex"]
-        self.tree_info = self.create_treeview(self.mid_frame, self.headers_01, [],
-                                              column=3, row=0, weight=1, _scrollbar=False)
+        self.var_min.trace("w", lambda x, y, z: self.populate_treeview(self.tree_info,
+                                                                       info_columns,
+                                                                       self._get_grinders_based_on_criteria()))
+        self.var_max.trace("w", lambda x, y, z: self.populate_treeview(self.tree_info,
+                                                                       info_columns,
+                                                                       self._get_grinders_based_on_criteria()))
+        self.var_search.trace("w", lambda x, y, z: self.populate_treeview(self.tree_info,
+                                                                          info_columns,
+                                                                          self._get_grinders_based_on_criteria()))
 
         self.headers = ["Date", "Start", "End", "Time"]
-        self.tree_grind = self.create_treeview(self.bottom_frame, self.headers, [], column=3, row=1, weight=1)
+        self.tree_grind = self.create_treeview(self.bottom_frame, self.headers, [], column=2, row=0, weight=1)
 
         # plot
         # These are the "Tableau 20" colors as RGB.
@@ -115,7 +118,7 @@ class Grind(GUI):
             r, g, b = self.tableau20[i]
             self.tableau20[i] = (r / 255., g / 255., b / 255.)
 
-        self.figure = plt.figure(figsize=(5, 6), dpi=70, facecolor='white', frameon=True)#, tight_layout=True)
+        self.figure = plt.figure(figsize=(3, 5), dpi=70, facecolor='white', frameon=True)  # , tight_layout=True)
         self.figure.subplots_adjust(bottom=0.35, left=0.05, right=0.8, top=0.9)
 
         self.axes = plt.axes()
@@ -140,10 +143,19 @@ class Grind(GUI):
         self.figure.canvas.mpl_connect('motion_notify_event', self.on_move)
 
         self.dataplot.show()
-        self.dataplot.get_tk_widget().grid(columnspan=5, sticky='nesw')
+        self.dataplot.get_tk_widget().grid(columnspan=4, sticky='nesw')
         self._update_plot([], label=None)
 
         self.annotations = []
+
+    def _get_grinders_based_on_criteria(self):
+            _min = 0 if self.sbx_grinds_min.get() == '' else int(self.sbx_grinds_min.get())
+            _max = 0 if self.sbx_grinds_max.get() == '' else int(self.sbx_grinds_max.get())
+            _search = self.var_search.get()
+            info = [(uuid, data['name'], data['sex'], data['age']) for uuid, data in self.grinders.items()
+                    if data['grinds'] is not None and _min < len(data['grinds']) < _max
+                    and _search.lower() in data['name'].lower()]
+            return info
 
     def annotate_plot_points(self, point, x, y, label, axes, annotations):
         for index_x, index_y in zip(x, y):
@@ -252,48 +264,20 @@ class Grind(GUI):
                     # times = [x for x in times if x < 150]
                     self._update_plot(collector, label=data['name'], legend=False)
 
-    # -- ListBox ---------------------------------------------------------------------------
-    def populate_listbox(self):
-        _min = 0 if self.sbx_grinds_min.get() == '' else int(self.sbx_grinds_min.get())
-        _max = 0 if self.sbx_grinds_max.get() == '' else int(self.sbx_grinds_max.get())
-
-        try:
-            names = [name for name, grinds in self.names_and_grinds
-                     if grinds is not None and _min <= len(grinds) <= _max]
-            names.sort()
-            search_term = self.var_search.get()
-
-            self.listbox_names.delete(0, tk.END)
-            items = [x for x in names if search_term.lower() in x.lower()]
-            for item in items:
-                self.listbox_names.insert('end', item)
-
-            for i in range(0, len(items), 2):
-                self.listbox_names.itemconfigure(i, background='#f0f0ff')
-        except Exception as e:
-            print(e)
-
-    def create_listbox(self, master, column=0):
-        listbox = tk.Listbox(master, height=15, width=35)
-        listbox.grid(column=column, row=0, rowspan=2, stick='news')
-        master.grid_columnconfigure(column, weight=0)
-
-        s = ttk.Scrollbar(master, orient=tk.VERTICAL, command=listbox.yview)
-        s.grid(column=column + 1, row=0, rowspan=2, sticky='ns')
-        listbox['yscrollcommand'] = s.set
-
-        return listbox
-
     # -- TreeView --------------------------------------------------------------------------
     def create_treeview(self, master, columns, rows, column=0, row=0, weight=0, _scrollbar=True):
+
         tree = ttk.Treeview(master, height=1, columns=columns, show="headings")
+
+        _row_span = 1
 
         if _scrollbar:
             vsb = ttk.Scrollbar(orient=tk.VERTICAL, command=tree.yview)
             tree.configure(yscrollcommand=vsb.set)
             vsb.grid(column=column + 1, row=row, sticky='nsew', in_=master)
+            _row_span = 2
 
-        tree.grid(column=column, row=row, rowspan=2, sticky='nsew', in_=master)
+        tree.grid(column=column, row=row, rowspan=_row_span, sticky='nsew', in_=master)
 
         master.grid_columnconfigure(column, weight=weight)
         master.grid_rowconfigure(row, weight=weight)
@@ -307,25 +291,31 @@ class Grind(GUI):
             tree.delete(i)
 
         for col in columns:
-            tree.heading(col, text=col.title(), command=lambda c=col: self.sortby(tree, c, 0))
-            tree.column(col)
+            tree.heading(col, text=col, command=lambda c=col: self.sortby(tree, c, 0))
+            _width = 140 if col == "Name" else 100
+            tree.column(col, width=_width)
 
         for index, row in enumerate(rows):
             if index % 2 == 0:
-                tree.insert('', 'end', values=row, tags = ('odd',))
+                tree.insert('', 'end', values=row, tags=('odd',))
             else:
-                tree.insert('', 'end', values=row, tags = ('even',))
-            # adjust column's width if necessary to fit each value
-            for ix, val in enumerate(row):
-                tree.column(columns[ix])
+                tree.insert('', 'end', values=row, tags=('even',))
 
         tree.tag_configure('odd', background='#f0f0ff')
 
+    def change_numeric(self, data):
+        new_data = []
+        if (data[0][0]).isdigit():
+            for child, col in data:
+                new_data.append((float(child), col))
+            return new_data
+        return data
+
     def sortby(self, tree, col, descending):
         """sort tree contents when a column header is clicked on"""
-
         # grab values to sort
         data = [(tree.set(child, col), child) for child in tree.get_children('')]
+        data = self.change_numeric(data)
 
         # now sort the data in place
         data.sort(reverse=descending)
@@ -336,66 +326,18 @@ class Grind(GUI):
         tree.heading(col, command=lambda col=col: self.sortby(tree, col, int(not descending)))
 
         # Update the plot line
-        times = [self.convert_timedelta_to_seconds(tree.set(child, "Time")) for child in tree.get_children('')]
-        if len(times) > 0:
-            self._update_plot(times, label="")
-
-    # -- Data Management
-    def get_account_names_and_grinds(self, clean_data_only=True):
-        info = [(data['name'], data['grinds']) for uuid, data in self.grinders.items()]
-        print("Number of Accounts: {}".format(len(info)))
-
-        service_unavailable = [name for name, grinds in info if "Service Unavailable" in name]
-        print("Number of 'Service Unavailable Accounts: {}".format(len(service_unavailable)))
-
-        if clean_data_only:
-            info = [(name, grinds) for name, grinds in info
-                    if "Not Found" not in name and "Service Unavailable" not in name]
-        print("Number of valid accounts loaded: {}".format(len(info)))
-
-        return info
-
-    def _get_grinds(self, value):
-        for uuid, data in self.grinders.items():
-            if value in data['name']:
-                grinds = data['grinds']
-
-                if self.internet_checks is True:
-                    if grinds is not None and (len(grinds) > 0 and type(grinds[0]) != dict):
-                        print("[{}] {}'s Grind format in unexpected format: {}".format(uuid, value, type(grinds[0])))
-                        grinds = account.collect_grind_times([], uuid)
-                        self.grinders[uuid]['grinds'] = grinds
-                        dirty = True
-
-                    if data['age'] is None or data['sex'] is None:
-                        print("[{}] Information was not up to date for: {}".format(uuid, value))
-                        _, _, sex, age, grinds = account.get_grind_data(uuid)
-                        self.grinders[uuid]['age'] = age
-                        self.grinders[uuid]['sex'] = sex
-                        # its possible for age and sex to be unknown if user did not complete any grinds yet.
-                        if age is not None and sex is not None:
-                            if self.grinders[uuid]['grinds'] is None:
-                                self.grinders[uuid]['grinds'] = list()
-
-                            # something was updated -- so might as well see if there are new grinds too.
-                            for grind in grinds:
-                                if grind not in self.grinders[uuid]['grinds']:
-                                    self.grinders[uuid]['grinds'].append(grind)
-
-                return self.grinders[uuid]['age'], self.grinders[uuid]['sex'], self.grinders[uuid]['grinds']
+        if col.endswith(("Start", "End", "Date", "Time")):
+            times = [self.convert_timedelta_to_seconds(tree.set(child, "Time")) for child in tree.get_children('')]
+            if len(times) > 0:
+                self._update_plot(times, label="")
 
     def display_grinds_for_tree(self, event):
+        item_id = self.tree_info.focus()
+        value = str(self.tree_info.item(item_id)['values'][0])
 
-        widget = event.widget
-        value = widget.get(widget.curselection()[0])
         self.log("[info] UUID: {}".format(value))
-        # self.tree_grind.delete(0, tk.END)  # clear
 
-        age, sex, grinds = self._get_grinds(value)
-        if age is None and sex is None:
-            age, sex = ("Unknown", "Unknown")
-        self.populate_treeview(self.tree_info, self.headers_01, [(age, sex)])
-
+        grinds = self.grinders[value]['grinds']
         if grinds is not None:
             collector = [[grind['date'],
                           self.convert_standard_to_military_time(grind['start']),
@@ -404,7 +346,7 @@ class Grind(GUI):
             collector = sorted(collector, key=lambda x: x[0])
             self.populate_treeview(self.tree_grind, self.headers, collector)
             times = [self.convert_timedelta_to_seconds(grind[3]) for grind in collector]
-            self._update_plot(collector, label=value)
+            self._update_plot(collector, label=self.grinders[value]['name'])
             #self._update_plot(times, label=value)
 
     def _update_plot(self, data, label=None, legend=True):
@@ -445,6 +387,7 @@ class Grind(GUI):
 
                 for label in legend.get_lines():
                     label.set_linewidth(1.5)  # the legend line width
+
         plot_type = "Attempt" if self.plot_attempts else "Dates"
         self.ax.set_title('Minutes To Complete Grouse Grind Plotted By {}'.format(plot_type))
         self.ax.set_ylabel('Duration (minutes)')

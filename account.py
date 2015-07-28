@@ -186,10 +186,10 @@ def thread_collect_accounts(accounts, numbers, pool=6):
     with concurrent.futures.ProcessPoolExecutor(pool) as executor:
         futures = [executor.submit(get_grind_data, number) for number in numbers]
         concurrent.futures.wait(futures)
+
         results = [future.result() for future in concurrent.futures.as_completed(futures)]
         for result in results:
             if result is not None:
-                print(result)
                 accounts = add_account(accounts,
                                        uuid=result[0],
                                        name=result[1],
@@ -213,7 +213,7 @@ def collect_account_numbers(min, max, step):
             print("Collecting: {}".format(option))
             for number in range(min + option, max + option, step):
                 if str(number) not in _accounts.keys():
-                    print("[info] Found an uncollected number: {}".format(number))
+                    # print("[info] Found an uncollected number: {}".format(number))
                     numbers.append(number)
         print("[info] New numbers found: {}".format(len(numbers)))
         return numbers
@@ -240,7 +240,7 @@ def collect_account_numbers(min, max, step):
 def recheck_names(with_name):
     accounts = load_json_data()
     numbers = [int(uuid) for uuid, data in accounts.items() if data['name'] == with_name]
-    print(numbers)
+    # print(numbers)
     print("[info] '{}' numbers found: {}".format(with_name, len(numbers)))
     print("Numbers: {}".format(numbers))
     thread_collect_accounts(accounts, numbers, pool=1)
@@ -266,7 +266,7 @@ def split_accounts():
             del accounts[uuid]
     dump_json_data(accounts)
 
-    print(len(bad_accounts))
+    print("Length of bad accounts: {}".format(len(bad_accounts)))
 
 
 def correct_bad_grinds():
@@ -276,22 +276,10 @@ def correct_bad_grinds():
     for uuid, data in accounts.items():
         if data['grinds'] is not None and len(data['grinds'])>0:
             if type(data['grinds'][0]) == int:
-                #print(uuid, data['grinds'])
+                # print(uuid, data['grinds'])
                 numbers.append(uuid)
-                """
-                info = get_grind_data(uuid)
-                add_account(accounts,
-                            uuid,
-                            name=info[1],
-                            age=info[2],
-                            sex=info[3],
-                            grinds=info[4])
-                counter+=1
-            if counter == 200:
-                dump_json_data(accounts)
-                return
-                """
-    thread_collect_accounts(accounts,numbers)
+
+    thread_collect_accounts(accounts, numbers)
 
     print(counter)
 if __name__ == "__main__":
@@ -302,7 +290,7 @@ if __name__ == "__main__":
     # print(len(x))
     # 18014003000
 
-    collect_account_numbers(173000, 252000, 1)
+    collect_account_numbers(0000, 280000, 1)
     # recheck_names("Service Unavailable")
     split_accounts()
 
