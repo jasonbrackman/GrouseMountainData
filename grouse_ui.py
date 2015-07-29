@@ -260,20 +260,18 @@ class Grind(GUI):
         account.dump_json_data(self.grinders)
 
     def _update_account(self):
-        selected = self.listbox_names.curselection()[0]
-        value = self.listbox_names.get(selected)
+        item_id = self.tree_info.focus()
+        value = str(self.tree_info.item(item_id)['values'][0])
 
-        if value is not None:
-            numbers = [uuid for uuid, data in self.grinders.items() if data['name'] == value]
-            uuid, name, sex, age, grinds = account.get_grind_data(numbers[0])
-            self.grinders[uuid]['sex'] = sex
-            self.grinders[uuid]['age'] = age
-            if self.grinders[uuid]['grinds'] is None:
-                self.grinders[uuid]['grinds'] = list()
+        uuid, name, sex, age, grinds = account.get_grind_data(value)
+        self.grinders[value]['sex'] = sex
+        self.grinders[value]['age'] = age
+        if self.grinders[value]['grinds'] is None:
+            self.grinders[value]['grinds'] = list()
 
-            for grind in grinds:
-                if grind not in self.grinders[uuid]['grinds']:
-                    self.grinders[uuid]['grinds'].append(grind)
+        for grind in grinds:
+            if grind not in self.grinders[value]['grinds']:
+                self.grinders[value]['grinds'].append(grind)
 
     def _clear_plots(self):
         self.ax.clear()
@@ -364,7 +362,9 @@ class Grind(GUI):
         item_id = self.tree_info.focus()
         value = str(self.tree_info.item(item_id)['values'][0])
 
-        self.log("[info] UUID: {}".format(value))
+        self.log("[info] Name: {} -- UUID: {} -- Grinds: {}".format(self.grinders[value]['name'],
+                                                                    value,
+                                                                    len(self.grinders[value]['grinds'])))
 
         grinds = self.grinders[value]['grinds']
         if grinds is not None:
