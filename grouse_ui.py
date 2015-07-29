@@ -71,7 +71,7 @@ class Grind(GUI):
 
         # Expensive Operation: get grind info
         self.grinders = account.load_json_data()
-        self.log("[info] Total # of accounts: {}".format(len(self.grinders)))
+
 
         # setup spinboxes
         self.sbx_grinds_min = tk.Spinbox(self.mid_frame, from_=0, to=4000, textvariable=self.var_min, width=4)
@@ -106,6 +106,7 @@ class Grind(GUI):
         self.tree_grind = self.create_treeview(self.bottom_frame, self.headers, [], column=2, row=0, weight=1)
 
         # plot
+        # http://tableaufriction.blogspot.ca/2012/11/finally-you-can-use-tableau-data-colors.html
         # These are the "Tableau 20" colors as RGB.
         self.tableau20 = [(31, 119, 180), (174, 199, 232), (255, 127, 14), (255, 187, 120),
                           (44, 160, 44), (152, 223, 138), (214, 39, 40), (255, 152, 150),
@@ -141,12 +142,40 @@ class Grind(GUI):
 
         # hover callback setup here.
         self.figure.canvas.mpl_connect('motion_notify_event', self.on_move)
+        males = [(list(self.grinders.keys()).index(uuid), len(data['grinds']))
+                 for uuid, data in self.grinders.items() if data['grinds'] is not None and data['age'] == 'Male']
+        # males.sort()
+        x_male = [x for x, y in males]
+        y_male = [y for x, y in males]
 
+        females = [(list(self.grinders.keys()).index(uuid), len(data['grinds']))
+                   for uuid, data in self.grinders.items() if data['grinds'] is not None and data['age'] == 'Female']
+        x_female = [x for x, y in females]
+        y_female = [y for x, y in females]
+
+        males = self.ax.bar(x_male, #  where something falls along the x-axis
+                             y_male, # y-axis (Height of each bar)
+                             2, # width
+                             color=self.tableau20[0],
+                             edgecolor='none'
+                             # yerr=(1,1,1,1,5)
+                             )
+        females = self.ax.bar(x_female, #  where something falls along the x-axis
+                            y_female, # y-axis (Height of each bar)
+                             2, # width
+                             color=self.tableau20[13],
+                             edgecolor='none'
+                             # yerr=(1,1,1,1,5)
+                             )
         self.dataplot.show()
         self.dataplot.get_tk_widget().grid(columnspan=4, sticky='nesw')
         self._update_plot([], label=None)
 
         self.annotations = []
+
+        self.log("[info] Total # of accounts: {} -- Males: {} -- Females: {}".format(len(self.grinders),
+                                                                                     len(y_male),
+                                                                                     len(y_female)))
 
     def _get_grinders_based_on_criteria(self):
             _min = 0 if self.sbx_grinds_min.get() == '' else int(self.sbx_grinds_min.get())
@@ -397,7 +426,7 @@ class Grind(GUI):
 def grouse_grind_app():
     root = tk.Tk()
     root.title("Grouse Grind App 0.5")
-    # root.geometry("720x500")
+    root.geometry("1040x720")
     Grind(root)
     root.mainloop()
 

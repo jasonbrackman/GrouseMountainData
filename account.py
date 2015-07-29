@@ -247,6 +247,7 @@ def recheck_names(with_name):
 
 
 def split_accounts():
+    # Split accounts between those that are "Not Found" and those that are valid.
     accounts = load_json_data()
     collection = [(uuid, data) for uuid, data in accounts.items() if data['name'] == "Not Found"]
 
@@ -270,18 +271,22 @@ def split_accounts():
 
 
 def correct_bad_grinds():
+    # Correct early account numbers that contained UUID numbers instead of grinds
     counter = 0
     accounts = load_json_data()
     numbers = []
     for uuid, data in accounts.items():
-        if data['grinds'] is not None and len(data['grinds'])>0:
+        if data['grinds'] is not None and len(data['grinds']) > 0:
             if type(data['grinds'][0]) == int:
                 # print(uuid, data['grinds'])
                 numbers.append(uuid)
-
+        if data['sex'] is None:
+            #print(data['name'])
+            numbers.append(uuid)
     thread_collect_accounts(accounts, numbers)
 
     print(counter)
+
 if __name__ == "__main__":
     # uuid = <any valid account>
     # print(get_grind_data(uuid))
@@ -289,10 +294,10 @@ if __name__ == "__main__":
     # x = collect_grind_times([], 22597005000, page=1)
     # print(len(x))
     # 18014003000
-
-    collect_account_numbers(0000, 280000, 1)
+    correct_bad_grinds()
+    #collect_account_numbers(0000, 290000, 1)
     # recheck_names("Service Unavailable")
-    split_accounts()
+    #split_accounts()
 
     #correct_bad_grinds()
     pass
