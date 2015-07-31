@@ -1,4 +1,6 @@
+import os
 import matplotlib
+
 matplotlib.use('TkAgg')
 
 import numpy as np
@@ -39,9 +41,16 @@ class GUI:
         self.status_bar = tk.Label(parent, text=self.status_msg, bd=1, relief=tk.SUNKEN, anchor='w')
         self.status_bar.pack(side="bottom", fill="x")
         self.log("[info] Ready...")
+        self.setup_app_icon()
 
     def log(self, message):
         self.status_bar.configure(text=message)
+
+    def setup_app_icon(self):
+        # setup the app icon
+        head, tail = os.path.split(os.path.realpath(__file__))
+        icon_path = os.path.join(head, 'assets', 'mountain.ico')
+        self.parent.wm_iconbitmap(bitmap=icon_path)
 
 
 class Grind(GUI):
@@ -80,7 +89,7 @@ class Grind(GUI):
         self.sbx_grinds_max.grid(row=1, column=1, sticky='ns', pady=0, padx=0)
 
         # search bar UI
-        self.entry_search = tk.Entry(self.mid_frame, textvariable=self.var_search, width=20)
+        self.entry_search = tk.Entry(self.mid_frame, textvariable=self.var_search, width=60)
         self.entry_search.grid(row=1, column=2, sticky='ns', pady=0, padx=0)
 
         # listbox UI and contents
@@ -142,49 +151,77 @@ class Grind(GUI):
 
         # hover callback setup here.
         self.figure.canvas.mpl_connect('motion_notify_event', self.on_move)
+
+        self.dataplot.get_tk_widget().grid(columnspan=4, sticky='nesw')
+        self._update_plot([], label=None)
+        self.dataplot.show()
+        self.annotations = []
+
+        self.log("[info] Total # of accounts: {}".format(len(self.grinders)))
+
+    def _display_bar_graph(self, x, y, width=2, color='r', edgecolor='none', yerr=None):
+        # where something falls along the x-axis
+        # y-axis (Height of each bar)
+        self.ax.bar(x, y, width, color=color, edgecolor=edgecolor, yerr=yerr)
+        self.ax.set_title('Grouse Grinds Completed by Gender')
+        self.ax.set_xlabel('# of Attempts')
+        self.ax.set_ylabel('# of People')
+        self.dataplot.show()
+
+    def _plot_grinds_for_all(self):
         males = [(list(self.grinders.keys()).index(uuid), len(data['grinds']))
                  for uuid, data in self.grinders.items() if data['grinds'] is not None and data['age'] == 'Male']
-        # males.sort()
-        x_male = [x for x, y in males]
-        y_male = [y for x, y in males]
 
         females = [(list(self.grinders.keys()).index(uuid), len(data['grinds']))
                    for uuid, data in self.grinders.items() if data['grinds'] is not None and data['age'] == 'Female']
+
+        unknowns = [(list(self.grinders.keys()).index(uuid), len(data['grinds']))
+                    for uuid, data in self.grinders.items() if data['grinds'] is not None and
+                    data['age'] != 'Female' and data['age'] != 'Male']
+        """
+        x_male = [x for x, y in males]
+        y_male = [y for x, y in males]
+
         x_female = [x for x, y in females]
         y_female = [y for x, y in females]
 
-        males = self.ax.bar(x_male, #  where something falls along the x-axis
-                             y_male, # y-axis (Height of each bar)
-                             2, # width
-                             color=self.tableau20[0],
-                             edgecolor='none'
-                             # yerr=(1,1,1,1,5)
-                             )
-        females = self.ax.bar(x_female, #  where something falls along the x-axis
-                            y_female, # y-axis (Height of each bar)
-                             2, # width
-                             color=self.tableau20[13],
-                             edgecolor='none'
-                             # yerr=(1,1,1,1,5)
-                             )
-        self.dataplot.show()
-        self.dataplot.get_tk_widget().grid(columnspan=4, sticky='nesw')
-        self._update_plot([], label=None)
+        self._display_bar_graph(x_male, y_male, width=4, color=self.tableau20[0], edgecolor="black")
+        self._display_bar_graph(x_female, y_female, width=4, color=self.tableau20[13], edgecolor="black")
+        """
 
-        self.annotations = []
+        keys = list(range(0, 105, 5))
+        y_males = []
+        y_females = []
+        y_unknowns = []
+        for index, key in enumerate(keys):
+            if index == 0:
+                y_males.append(len([y for x, y in males if y <= keys[index]]))
+                y_females.append(len([y for x, y in females if y <= keys[index]]))
+                y_unknowns.append(len([y for x, y in unknowns if y <= keys[index]]))
 
-        self.log("[info] Total # of accounts: {} -- Males: {} -- Females: {}".format(len(self.grinders),
-                                                                                     len(y_male),
-                                                                                     len(y_female)))
+            elif index == len(keys)-1:
+                y_males.append(len([y for x, y in males if y >= keys[index]]))
+                y_females.append(len([y for x, y in females if y >= keys[index]]))
+                y_unknowns.append(len([y for x, y in unknowns if y >= keys[index]]))
+            else:
+                y_males.append(len([y for x, y in males if keys[index] < y < keys[index + 1]]))
+                y_females.append(len([y for x, y in females if keys[index] < y < keys[index + 1]]))
+                y_unknowns.append(len([y for x, y in unknowns if keys[index] < y < keys[index + 1]]))
+
+        self._display_bar_graph(keys, y_males, width=4, color=self.tableau20[0], edgecolor="black")
+        self._display_bar_graph(keys, y_females, width=4, color=self.tableau20[13], edgecolor="black")
+        self._display_bar_graph(keys, y_unknowns, width=4, color=self.tableau20[19], edgecolor="black")
+
+        # self.log("[info]  Males: {} // Females: {}".format(len(y_male), len(y_female)))
 
     def _get_grinders_based_on_criteria(self):
-            _min = 0 if self.sbx_grinds_min.get() == '' else int(self.sbx_grinds_min.get())
-            _max = 0 if self.sbx_grinds_max.get() == '' else int(self.sbx_grinds_max.get())
-            _search = self.var_search.get()
-            info = [(uuid, data['name'], data['sex'], data['age']) for uuid, data in self.grinders.items()
-                    if data['grinds'] is not None and _min < len(data['grinds']) < _max
-                    and _search.lower() in data['name'].lower()]
-            return info
+        _min = 0 if self.sbx_grinds_min.get() == '' else int(self.sbx_grinds_min.get())
+        _max = 0 if self.sbx_grinds_max.get() == '' else int(self.sbx_grinds_max.get())
+        _search = self.var_search.get()
+        info = [(uuid, data['name'], data['sex'], data['age']) for uuid, data in self.grinders.items()
+                if data['grinds'] is not None and _min < len(data['grinds']) < _max
+                and _search.lower() in data['name'].lower()]
+        return info
 
     def annotate_plot_points(self, point, x, y, label, axes, annotations):
         for index_x, index_y in zip(x, y):
@@ -193,7 +230,7 @@ class Grind(GUI):
             mean = self.convert_seconds_to_timedelta(np.mean(y))
             annotation = axes.annotate("{}\nCurrent: {}\nBest: {}\nMean:{}".format(label, current, best, mean),
                                        xy=(index_x, index_y), xycoords='data',
-                                       xytext=(index_x+0.02, index_y+0.1), textcoords='data',
+                                       xytext=(index_x + 0.02, index_y + 0.1), textcoords='data',
                                        horizontalalignment="left",
                                        # arrowprops=dict(arrowstyle="simple", connectionstyle="arc3,rad=-0.2"),
                                        bbox=dict(boxstyle="round", facecolor="w", edgecolor="0.5", alpha=0.8))
@@ -225,7 +262,7 @@ class Grind(GUI):
 
     @staticmethod
     def convert_seconds_to_timedelta(_time):
-        return str(datetime.timedelta(seconds=_time*60))
+        return str(datetime.timedelta(seconds=_time * 60))
 
     @staticmethod
     def convert_standard_to_military_time(standard):
@@ -245,6 +282,8 @@ class Grind(GUI):
         filemenu.add_command(label="Clear Plots", command=self._clear_plots)
         filemenu.add_command(label="Plot Everything", command=self._plot_everything)
         filemenu.add_command(label="Switch Plot Type", command=self._switch_plot)
+        filemenu.add_command(label="Show Bar Graph of Men & Women Grind Totals", command=self._plot_grinds_for_all)
+
         menubar.add_cascade(label="File", menu=filemenu)
 
         return menubar
@@ -319,7 +358,9 @@ class Grind(GUI):
 
         for col in columns:
             tree.heading(col, text=col, command=lambda c=col: self.sortby(tree, c, 0))
-            _width = 140 if col == "Name" else 100
+            _width = 140 if col == "Name" else 90
+            if col == 'Date' or col == 'Start' or col == 'End' or col == 'Time':
+                _width = None
             tree.column(col, width=_width)
 
         for index, row in enumerate(rows):
@@ -376,7 +417,7 @@ class Grind(GUI):
             self.populate_treeview(self.tree_grind, self.headers, collector)
             times = [self.convert_timedelta_to_seconds(grind[3]) for grind in collector]
             self._update_plot(collector, label=self.grinders[value]['name'])
-            #self._update_plot(times, label=value)
+            # self._update_plot(times, label=value)
 
     def _update_plot(self, data, label=None, legend=True):
         # self.a.clear()
@@ -391,13 +432,14 @@ class Grind(GUI):
                 point, = self.ax.plot(dates, times, '.-', label=label, color=self.tableau20[random.randint(0, 19)])
             else:
                 point, = self.ax.plot(dates, times, '.-', label=label, color=self.tableau20[random.randint(0, 19)])
-                #self.ax.scatter(dates, times)
+                # self.ax.scatter(dates, times)
 
                 # matplotlib date format object
                 hfmt = matplotlib.dates.DateFormatter('%Y-%m-%d')
                 items = self.ax.get_xticks().tolist()
                 if items[0] > 1:
-                    self.ax.set_xticklabels([num2date(item) for item in items if int(item) > 1], rotation=42, fontsize=11)
+                    self.ax.set_xticklabels([num2date(item) for item in items if int(item) > 1], rotation=42,
+                                            fontsize=11)
                     self.ax.xaxis.set_major_formatter(hfmt)
 
             self.annotate_plot_points(point, dates, times, label, self.axes, self.annotations)
