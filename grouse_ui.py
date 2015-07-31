@@ -56,6 +56,17 @@ class GUI:
 class Grind(GUI):
     internet_checks = False
 
+    # http://tableaufriction.blogspot.ca/2012/11/finally-you-can-use-tableau-data-colors.html
+    # These are the "Tableau 20" colors as RGB.
+    # Scale the RGB values to the [0, 1] range, which is the format matplotlib accepts.
+    tableau20 = [(r / 255., g / 255., b / 255.) for r, g, b in [(31, 119, 180), (174, 199, 232), (255, 127, 14),
+                                                                (255, 187, 120), (44, 160, 44), (152, 223, 138),
+                                                                (214, 39, 40), (255, 152, 150), (148, 103, 189),
+                                                                (197, 176, 213), (140, 86, 75), (196, 156, 148),
+                                                                (227, 119, 194), (247, 182, 210), (127, 127, 127),
+                                                                (199, 199, 199), (188, 189, 34), (219, 219, 141),
+                                                                (23, 190, 207), (158, 218, 229)]]
+
     def __init__(self, parent):
         self.gui = GUI.__init__(self, parent)
         # file menu
@@ -81,7 +92,6 @@ class Grind(GUI):
         # Expensive Operation: get grind info
         self.grinders = account.load_json_data()
 
-
         # setup spinboxes
         self.sbx_grinds_min = tk.Spinbox(self.mid_frame, from_=0, to=4000, textvariable=self.var_min, width=4)
         self.sbx_grinds_min.grid(row=1, column=0, sticky='ns', pady=0, padx=0)
@@ -94,40 +104,23 @@ class Grind(GUI):
 
         # listbox UI and contents
         info_columns = ["UUID", "Name", "Age", "Sex"]
-        # info = [(uuid, data['name'], data['sex'], data['age']) for uuid, data in self.grinders.items()]
         info = self._get_grinders_based_on_criteria()
         self.tree_info = self.create_treeview(self.bottom_frame, info_columns, info,
                                               column=0, row=0, weight=0, _scrollbar=True)
         self.tree_info.bind("<<TreeviewSelect>>", self.display_grinds_for_tree)
 
         # setup Traces - callbacks for what the spinners will do.
-        self.var_min.trace("w", lambda x, y, z: self.populate_treeview(self.tree_info,
-                                                                       info_columns,
+        self.var_min.trace("w", lambda x, y, z: self.populate_treeview(self.tree_info, info_columns,
                                                                        self._get_grinders_based_on_criteria()))
-        self.var_max.trace("w", lambda x, y, z: self.populate_treeview(self.tree_info,
-                                                                       info_columns,
+        self.var_max.trace("w", lambda x, y, z: self.populate_treeview(self.tree_info, info_columns,
                                                                        self._get_grinders_based_on_criteria()))
-        self.var_search.trace("w", lambda x, y, z: self.populate_treeview(self.tree_info,
-                                                                          info_columns,
+        self.var_search.trace("w", lambda x, y, z: self.populate_treeview(self.tree_info, info_columns,
                                                                           self._get_grinders_based_on_criteria()))
 
         self.headers = ["Date", "Start", "End", "Time"]
         self.tree_grind = self.create_treeview(self.bottom_frame, self.headers, [], column=2, row=0, weight=1)
 
         # plot
-        # http://tableaufriction.blogspot.ca/2012/11/finally-you-can-use-tableau-data-colors.html
-        # These are the "Tableau 20" colors as RGB.
-        self.tableau20 = [(31, 119, 180), (174, 199, 232), (255, 127, 14), (255, 187, 120),
-                          (44, 160, 44), (152, 223, 138), (214, 39, 40), (255, 152, 150),
-                          (148, 103, 189), (197, 176, 213), (140, 86, 75), (196, 156, 148),
-                          (227, 119, 194), (247, 182, 210), (127, 127, 127), (199, 199, 199),
-                          (188, 189, 34), (219, 219, 141), (23, 190, 207), (158, 218, 229)]
-
-        # Scale the RGB values to the [0, 1] range, which is the format matplotlib accepts.
-        for i in range(len(self.tableau20)):
-            r, g, b = self.tableau20[i]
-            self.tableau20[i] = (r / 255., g / 255., b / 255.)
-
         self.figure = plt.figure(figsize=(3, 5), dpi=70, facecolor='white', frameon=True)  # , tight_layout=True)
         self.figure.subplots_adjust(bottom=0.35, left=0.05, right=0.8, top=0.9)
 
@@ -169,6 +162,23 @@ class Grind(GUI):
         self.dataplot.show()
 
     def _plot_grinds_for_all(self):
+
+        females = []
+        males = []
+        unknowns = []
+        for uuid, data in self.grinders.items():
+            if data['grinds'] is not None:
+                sex = data['age']
+                grinds = len(data['grinds'])
+
+                if sex is None:
+                    unknowns.append(grinds)
+                elif 'Male' in sex:
+                    males.append(grinds)
+                elif 'Female' in sex:
+                    females.append(grinds)
+
+        """
         males = [(list(self.grinders.keys()).index(uuid), len(data['grinds']))
                  for uuid, data in self.grinders.items() if data['grinds'] is not None and data['age'] == 'Male']
 
@@ -178,7 +188,7 @@ class Grind(GUI):
         unknowns = [(list(self.grinders.keys()).index(uuid), len(data['grinds']))
                     for uuid, data in self.grinders.items() if data['grinds'] is not None and
                     data['age'] != 'Female' and data['age'] != 'Male']
-        """
+
         x_male = [x for x, y in males]
         y_male = [y for x, y in males]
 
@@ -194,25 +204,22 @@ class Grind(GUI):
         y_females = []
         y_unknowns = []
         for index, key in enumerate(keys):
-            if index == 0:
-                y_males.append(len([y for x, y in males if y <= keys[index]]))
-                y_females.append(len([y for x, y in females if y <= keys[index]]))
-                y_unknowns.append(len([y for x, y in unknowns if y <= keys[index]]))
-
-            elif index == len(keys)-1:
-                y_males.append(len([y for x, y in males if y >= keys[index]]))
-                y_females.append(len([y for x, y in females if y >= keys[index]]))
-                y_unknowns.append(len([y for x, y in unknowns if y >= keys[index]]))
+            if index == len(keys)-1:
+                y_males.append(len([y for y in males if y >= keys[index]]))
+                y_females.append(len([y for y in females if y >= keys[index]]))
+                y_unknowns.append(len([y for y in unknowns if y >= keys[index]]))
             else:
-                y_males.append(len([y for x, y in males if keys[index] < y < keys[index + 1]]))
-                y_females.append(len([y for x, y in females if keys[index] < y < keys[index + 1]]))
-                y_unknowns.append(len([y for x, y in unknowns if keys[index] < y < keys[index + 1]]))
+                y_males.append(len([y for y in males if keys[index] < y < keys[index + 1]]))
+                y_females.append(len([y for y in females if keys[index] < y < keys[index + 1]]))
+                y_unknowns.append(len([y for y in unknowns if keys[index] < y < keys[index + 1]]))
 
         self._display_bar_graph(keys, y_males, width=4, color=self.tableau20[0], edgecolor="black")
-        self._display_bar_graph(keys, y_females, width=4, color=self.tableau20[13], edgecolor="black")
-        self._display_bar_graph(keys, y_unknowns, width=4, color=self.tableau20[19], edgecolor="black")
+        self._display_bar_graph(keys, y_females, width=3, color=self.tableau20[13], edgecolor="black")
+        self._display_bar_graph(keys, y_unknowns, width=2, color=self.tableau20[19], edgecolor="black")
 
-        # self.log("[info]  Males: {} // Females: {}".format(len(y_male), len(y_female)))
+        self.log("[info]  Males: {} // Females: {} // Unknowns: {}".format(len(males),
+                                                                           len(females),
+                                                                           len(unknowns)))
 
     def _get_grinders_based_on_criteria(self):
         _min = 0 if self.sbx_grinds_min.get() == '' else int(self.sbx_grinds_min.get())
