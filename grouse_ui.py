@@ -80,27 +80,62 @@ class Grind(GUI):
         self.var_max = tk.StringVar()
         self.var_min.set("10")
         self.var_max.set("1500")
+        self.var_year = tk.StringVar()
+        self.var_year.set("All Time")
 
         # labels
+        self.lbl_gender = tk.Label(self.mid_frame, text="Gender:", anchor='w')
+        self.lbl_gender.grid(row=0, column=0, sticky='wnse')
+        self.lbl_year = tk.Label(self.mid_frame, text="Year:", anchor='w')
+        self.lbl_year.grid(row=0, column=1, sticky='wnse')
         self.lbl_min = tk.Label(self.mid_frame, text="Min:", anchor='w')
-        self.lbl_min.grid(row=0, column=0, sticky='wnse')
+        self.lbl_min.grid(row=0, column=2, sticky='wnse')
         self.lbl_min = tk.Label(self.mid_frame, text="Max:", anchor='w')
-        self.lbl_min.grid(row=0, column=1, sticky='wnse')
+        self.lbl_min.grid(row=0, column=3, sticky='wnse')
         self.lbl_min = tk.Label(self.mid_frame, text="Search:", anchor='w')
-        self.lbl_min.grid(row=0, column=2, columnspan=2, sticky='wnse')
+        self.lbl_min.grid(row=0, column=4, columnspan=2, sticky='wnse')
 
         # Expensive Operation: get grind info
         self.grinders = account.load_json_data()
 
+        # setup combobox
+        collector = []
+        for uuid, data in self.grinders.items():
+            if data['grinds'] is not None:
+                try:
+                    collector += [item['date'].split("-")[0] for item in data['grinds']]
+                except TypeError as e:
+                    print(data['name'])
+                    print(data)
+
+        # plot options
+        var_gender = tk.StringVar()
+        var_gender.set('None')
+        choices = ['None', 'All', 'Males', 'Females', 'Unknowns']
+        option = tk.OptionMenu(self.mid_frame, var_gender, *choices)
+        option.config(width=7)
+        option.grid(row=1, column=0, sticky='ns', pady=0, padx=0)
+        var_gender.trace("w", lambda x, y, z: self._plot_grinds_for_all(show_males=(var_gender.get() == "Males" or var_gender.get() == 'All'),
+                                                                 show_females=(var_gender.get() == "Females" or var_gender.get() == 'All'),
+                                                                 show_unknowns=(var_gender.get() == "Unknowns" or var_gender.get() == 'All')))
+
+        self.years = list(set(collector))
+        self.years.sort()
+        self.years.insert(0, 'All Time')
+
+        self.ddl_years = tk.OptionMenu(self.mid_frame, self.var_year, *self.years)
+        self.ddl_years.config(width=7)
+        self.ddl_years.grid(row=1, column=1, sticky='ns', pady=0, padx=0)
+
         # setup spinboxes
         self.sbx_grinds_min = tk.Spinbox(self.mid_frame, from_=0, to=4000, textvariable=self.var_min, width=4)
-        self.sbx_grinds_min.grid(row=1, column=0, sticky='ns', pady=0, padx=0)
+        self.sbx_grinds_min.grid(row=1, column=2, sticky='ns', pady=0, padx=0)
         self.sbx_grinds_max = tk.Spinbox(self.mid_frame, from_=0, to=4000, textvariable=self.var_max, width=4)
-        self.sbx_grinds_max.grid(row=1, column=1, sticky='ns', pady=0, padx=0)
+        self.sbx_grinds_max.grid(row=1, column=3, sticky='ns', pady=0, padx=0)
 
         # search bar UI
         self.entry_search = tk.Entry(self.mid_frame, textvariable=self.var_search, width=60)
-        self.entry_search.grid(row=1, column=2, sticky='ns', pady=0, padx=0)
+        self.entry_search.grid(row=1, column=4, sticky='ns', pady=0, padx=0)
 
         # listbox UI and contents
         info_columns = ["UUID", "Name", "Age", "Sex"]
@@ -116,21 +151,21 @@ class Grind(GUI):
                                                                        self._get_grinders_based_on_criteria()))
         self.var_search.trace("w", lambda x, y, z: self.populate_treeview(self.tree_info, info_columns,
                                                                           self._get_grinders_based_on_criteria()))
+        self.var_year.trace("w", lambda x, y, z: self.populate_treeview(self.tree_info, info_columns,
+                                                                        self._get_grinders_based_on_criteria()))
 
         self.headers = ["Date", "Start", "End", "Time"]
         self.tree_grind = self.create_treeview(self.bottom_frame, self.headers, [], column=2, row=0, weight=1)
 
         # plot
-        self.figure = plt.figure(figsize=(3, 5), dpi=70, facecolor='white', frameon=True)  # , tight_layout=True)
+        self.figure = plt.figure(facecolor='white', frameon=True)  # , tight_layout=True)
         self.figure.subplots_adjust(bottom=0.35, left=0.05, right=0.8, top=0.9)
 
         self.axes = plt.axes()
 
         self.ax = self.figure.add_subplot(111)
         # Where did the data come from?
-        self.ax.text(0, -0.45, "Data source: https://www.grousemountain.com/grind_stats",
-                     transform=self.ax.transAxes,
-                     fontsize=11)
+
         self.ax.spines["top"].set_visible(False)
         self.ax.spines["bottom"].set_color('grey')
         self.ax.spines["right"].set_visible(False)
@@ -152,17 +187,22 @@ class Grind(GUI):
 
         self.log("[info] Total # of accounts: {}".format(len(self.grinders)))
 
-    def _display_bar_graph(self, x, y, width=2, color='r', edgecolor='none', yerr=None):
+    def autolabel(self, rects):
+        # attach some text labels
+        total = sum([rect.get_height() for rect in rects])
+        for rect in rects:
+            height = rect.get_height()
+            self.ax.text(rect.get_x()+rect.get_width()/2., 1.05*height, '{0:.1%}'.format(height/total), ha='center', va='bottom')
+
+    def _display_bar_graph(self, x, y, width=2, color=(1, 0, 0), edgecolor='none', yerr=None, autolabel=False):
         # where something falls along the x-axis
         # y-axis (Height of each bar)
-        self.ax.bar(x, y, width, color=color, edgecolor=edgecolor, yerr=yerr)
-        self.ax.set_title('Grouse Grinds Completed by Gender')
-        self.ax.set_xlabel('# of Attempts')
-        self.ax.set_ylabel('# of People')
-        self.dataplot.show()
+        bars = self.ax.bar(x, y, width, color=color, edgecolor=edgecolor, yerr=yerr)
+        if autolabel:
+            self.autolabel(bars)
 
-    def _plot_grinds_for_all(self):
-
+    def _plot_grinds_for_all(self, show_males=False, show_females=False, show_unknowns=False):
+        self._clear_plots()
         females = []
         males = []
         unknowns = []
@@ -178,28 +218,7 @@ class Grind(GUI):
                 elif 'Female' in sex:
                     females.append(grinds)
 
-        """
-        males = [(list(self.grinders.keys()).index(uuid), len(data['grinds']))
-                 for uuid, data in self.grinders.items() if data['grinds'] is not None and data['age'] == 'Male']
-
-        females = [(list(self.grinders.keys()).index(uuid), len(data['grinds']))
-                   for uuid, data in self.grinders.items() if data['grinds'] is not None and data['age'] == 'Female']
-
-        unknowns = [(list(self.grinders.keys()).index(uuid), len(data['grinds']))
-                    for uuid, data in self.grinders.items() if data['grinds'] is not None and
-                    data['age'] != 'Female' and data['age'] != 'Male']
-
-        x_male = [x for x, y in males]
-        y_male = [y for x, y in males]
-
-        x_female = [x for x, y in females]
-        y_female = [y for x, y in females]
-
-        self._display_bar_graph(x_male, y_male, width=4, color=self.tableau20[0], edgecolor="black")
-        self._display_bar_graph(x_female, y_female, width=4, color=self.tableau20[13], edgecolor="black")
-        """
-
-        keys = list(range(0, 105, 5))
+        keys = list(range(0, 101, 5))
         y_males = []
         y_females = []
         y_unknowns = []
@@ -213,10 +232,46 @@ class Grind(GUI):
                 y_females.append(len([y for y in females if keys[index] < y < keys[index + 1]]))
                 y_unknowns.append(len([y for y in unknowns if keys[index] < y < keys[index + 1]]))
 
-        self._display_bar_graph(keys, y_males, width=4, color=self.tableau20[0], edgecolor="black")
-        self._display_bar_graph(keys, y_females, width=3, color=self.tableau20[13], edgecolor="black")
-        self._display_bar_graph(keys, y_unknowns, width=2, color=self.tableau20[19], edgecolor="black")
+        gender = 'Gender'
+        _width = 5
+        showlabel = not (show_males is show_females is show_unknowns is True)
 
+        if show_males:
+            gender = 'Males'
+            self._display_bar_graph(keys, y_males,
+                                    width=_width,
+                                    color=self.tableau20[0],
+                                    edgecolor="black",
+                                    autolabel=showlabel)
+
+        if show_females:
+            gender = 'Females'
+            self._display_bar_graph(keys, y_females,
+                                    width=_width,
+                                    color=self.tableau20[13],
+                                    edgecolor="black",
+                                    autolabel=showlabel)
+
+        if show_unknowns:
+            gender = 'Unknown Gender'
+            self._display_bar_graph(keys, y_unknowns,
+                                    width=_width,
+                                    color=self.tableau20[15],
+                                    edgecolor="black",
+                                    autolabel=showlabel)
+
+        if showlabel is False:
+            gender = "Males, Females, and Unknown gender"
+
+        self.ax.set_title('Breakdown of Grinds Completed by {}'.format(gender))
+        self.ax.set_xlabel('# of Attempts')
+        self.ax.set_ylabel('# of People')
+        self.ax.text(0, -0.45, "Data source: https://www.grousemountain.com/grind_stats",
+                     transform=self.ax.transAxes,
+                     fontsize=11)
+        # self.ax.locator_params(nbins=25)
+        #self.ax.set_xticklabels(keys)
+        self.dataplot.show()
         self.log("[info]  Males: {} // Females: {} // Unknowns: {}".format(len(males),
                                                                            len(females),
                                                                            len(unknowns)))
@@ -225,9 +280,16 @@ class Grind(GUI):
         _min = 0 if self.sbx_grinds_min.get() == '' else int(self.sbx_grinds_min.get())
         _max = 0 if self.sbx_grinds_max.get() == '' else int(self.sbx_grinds_max.get())
         _search = self.var_search.get()
-        info = [(uuid, data['name'], data['sex'], data['age']) for uuid, data in self.grinders.items()
-                if data['grinds'] is not None and _min < len(data['grinds']) < _max
-                and _search.lower() in data['name'].lower()]
+        _year = self.var_year.get()
+
+        try:
+            info = [(uuid, data['name'], data['sex'], data['age']) for uuid, data in self.grinders.items()
+                    if data['grinds'] is not None and _min < len(data['grinds']) < _max and
+                    (_year == "All Time" or any(date['date'].startswith(_year) for date in data['grinds'])) and
+                    _search.lower() in data['name'].lower()]
+        except TypeError as e:
+            print(e)
+            info = []
         return info
 
     def annotate_plot_points(self, point, x, y, label, axes, annotations):
@@ -365,7 +427,7 @@ class Grind(GUI):
 
         for col in columns:
             tree.heading(col, text=col, command=lambda c=col: self.sortby(tree, c, 0))
-            _width = 140 if col == "Name" else 90
+            _width = 140 if col == "Name" else 100
             if col == 'Date' or col == 'Start' or col == 'End' or col == 'Time':
                 _width = None
             tree.column(col, width=_width)
@@ -400,12 +462,6 @@ class Grind(GUI):
         # switch the heading so it will sort in the opposite direction
         tree.heading(col, command=lambda col=col: self.sortby(tree, col, int(not descending)))
 
-        # Update the plot line
-        if col.endswith(("Start", "End", "Date", "Time")):
-            times = [self.convert_timedelta_to_seconds(tree.set(child, "Time")) for child in tree.get_children('')]
-            if len(times) > 0:
-                self._update_plot(times, label="")
-
     def display_grinds_for_tree(self, event):
         item_id = self.tree_info.focus()
         value = str(self.tree_info.item(item_id)['values'][0])
@@ -415,23 +471,19 @@ class Grind(GUI):
                                                                     len(self.grinders[value]['grinds'])))
 
         grinds = self.grinders[value]['grinds']
+        year = self.var_year.get()
         if grinds is not None:
             collector = [[grind['date'],
                           self.convert_standard_to_military_time(grind['start']),
                           self.convert_standard_to_military_time(grind['end']),
-                          grind['time']] for grind in grinds]
+                          grind['time']] for grind in grinds if year == 'All Time' or grind['date'].startswith(year)]
             collector = sorted(collector, key=lambda x: x[0])
             self.populate_treeview(self.tree_grind, self.headers, collector)
-            times = [self.convert_timedelta_to_seconds(grind[3]) for grind in collector]
             self._update_plot(collector, label=self.grinders[value]['name'])
-            # self._update_plot(times, label=value)
 
     def _update_plot(self, data, label=None, legend=True):
-        # self.a.clear()
         dates = [date2num(datetime.datetime.strptime(grind[0], "%Y-%m-%d")) for grind in data]
         times = [self.convert_timedelta_to_seconds(grind[3]) for grind in data]
-        if len(dates) > 0:
-            pass
 
         if label is not None:
             if self.plot_attempts:
@@ -469,13 +521,16 @@ class Grind(GUI):
         plot_type = "Attempt" if self.plot_attempts else "Dates"
         self.ax.set_title('Minutes To Complete Grouse Grind Plotted By {}'.format(plot_type))
         self.ax.set_ylabel('Duration (minutes)')
+        self.ax.text(0, -0.45, "Data source: https://www.grousemountain.com/grind_stats",
+                     transform=self.ax.transAxes,
+                     fontsize=11)
         self.dataplot.show()
 
 
 def grouse_grind_app():
     root = tk.Tk()
     root.title("Grouse Grind App 0.5")
-    root.geometry("1040x720")
+    #root.geometry("1040x720")
     Grind(root)
     root.mainloop()
 

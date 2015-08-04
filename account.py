@@ -220,15 +220,16 @@ def collect_account_numbers(min, max, step):
 
     all_accounts = accounts.copy()
     all_accounts.update(accounts_not_found)
-    if max > 10000000000:
+    if max > 100000: #00000:
         # accounts seem to end in:
-        options = [8000,  # 18000,
-                   7000, 17000,
-                   6000, 16000,
-                   5000, 15000,
-                   4000, 14000,
-                   3000, 13000,
-                   2000, 12000]
+        options = [0]
+                   #8000,  # 18000,
+                   #7000, 17000,
+                   #6000, 16000,
+                   #5000, 15000,
+                   #4000, 14000,
+                   #3000, 13000,
+                   #2000, 12000]
         numbers = get_unknown_uuids(min, max, step, all_accounts, options)
     else:
         options = [0]
@@ -276,12 +277,17 @@ def correct_bad_grinds():
     accounts = load_json_data()
     numbers = []
     for uuid, data in accounts.items():
+        if data['grinds'] is None:
+            numbers.append(uuid)
         if data['grinds'] is not None and len(data['grinds']) > 0:
             if type(data['grinds'][0]) == int:
                 # print(uuid, data['grinds'])
                 numbers.append(uuid)
         if data['sex'] is None:
             #print(data['name'])
+            #numbers.append(uuid)
+            pass
+        if data['sex'] == 'Male':
             numbers.append(uuid)
     thread_collect_accounts(accounts, numbers)
 
@@ -295,9 +301,9 @@ if __name__ == "__main__":
     # print(len(x))
     # 18014003000
     correct_bad_grinds()
-    #collect_account_numbers(0000, 290000, 1)
-    # recheck_names("Service Unavailable")
-    #split_accounts()
+    #collect_account_numbers(240000000000, 451000000000, 1000000)
+    #recheck_names("Service Unavailable")
+    split_accounts()
 
     #correct_bad_grinds()
     pass
