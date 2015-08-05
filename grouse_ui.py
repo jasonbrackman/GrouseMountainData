@@ -55,6 +55,7 @@ class GUI:
 
 class Grind(GUI):
     internet_checks = False
+    plot_attempts = False
 
     # http://tableaufriction.blogspot.ca/2012/11/finally-you-can-use-tableau-data-colors.html
     # These are the "Tableau 20" colors as RGB.
@@ -68,91 +69,45 @@ class Grind(GUI):
                                                                 (23, 190, 207), (158, 218, 229)]]
 
     def __init__(self, parent):
+        # Expensive Operation: get grind info
+        self.grinders = account.load_json_data()
+
         self.gui = GUI.__init__(self, parent)
         # file menu
         parent.config(menu=self.add_file_menu(parent))
 
-        self.plot_attempts = False
-
         # required vars
-        self.var_search = tk.StringVar()
+        self.var_year = tk.StringVar()
+        self.var_gender = tk.StringVar()
         self.var_min = tk.StringVar()
         self.var_max = tk.StringVar()
-        self.var_min.set("10")
-        self.var_max.set("1500")
-        self.var_year = tk.StringVar()
-        self.var_year.set("All Time")
+        self.var_search = tk.StringVar()
 
-        # labels
-        self.lbl_gender = tk.Label(self.mid_frame, text="Gender:", anchor='w')
-        self.lbl_gender.grid(row=0, column=0, sticky='wnse')
-        self.lbl_year = tk.Label(self.mid_frame, text="Year:", anchor='w')
-        self.lbl_year.grid(row=0, column=1, sticky='wnse')
-        self.lbl_min = tk.Label(self.mid_frame, text="Min:", anchor='w')
-        self.lbl_min.grid(row=0, column=2, sticky='wnse')
-        self.lbl_min = tk.Label(self.mid_frame, text="Max:", anchor='w')
-        self.lbl_min.grid(row=0, column=3, sticky='wnse')
-        self.lbl_min = tk.Label(self.mid_frame, text="Search:", anchor='w')
-        self.lbl_min.grid(row=0, column=4, columnspan=2, sticky='wnse')
-
-        # Expensive Operation: get grind info
-        self.grinders = account.load_json_data()
-
-        # setup combobox
-        collector = []
-        for uuid, data in self.grinders.items():
-            if data['grinds'] is not None:
-                try:
-                    collector += [item['date'].split("-")[0] for item in data['grinds']]
-                except TypeError as e:
-                    print(data['name'])
-                    print(data)
-
-        # plot options
-        var_gender = tk.StringVar()
-        var_gender.set('None')
-        choices = ['None', 'All', 'Males', 'Females', 'Unknowns']
-        option = tk.OptionMenu(self.mid_frame, var_gender, *choices)
-        option.config(width=7)
-        option.grid(row=1, column=0, sticky='ns', pady=0, padx=0)
-        var_gender.trace("w", lambda x, y, z: self._plot_grinds_for_all(show_males=(var_gender.get() == "Males" or var_gender.get() == 'All'),
-                                                                 show_females=(var_gender.get() == "Females" or var_gender.get() == 'All'),
-                                                                 show_unknowns=(var_gender.get() == "Unknowns" or var_gender.get() == 'All')))
-
-        self.years = list(set(collector))
-        self.years.sort()
-        self.years.insert(0, 'All Time')
-
-        self.ddl_years = tk.OptionMenu(self.mid_frame, self.var_year, *self.years)
-        self.ddl_years.config(width=7)
-        self.ddl_years.grid(row=1, column=1, sticky='ns', pady=0, padx=0)
-
-        # setup spinboxes
-        self.sbx_grinds_min = tk.Spinbox(self.mid_frame, from_=0, to=4000, textvariable=self.var_min, width=4)
-        self.sbx_grinds_min.grid(row=1, column=2, sticky='ns', pady=0, padx=0)
-        self.sbx_grinds_max = tk.Spinbox(self.mid_frame, from_=0, to=4000, textvariable=self.var_max, width=4)
-        self.sbx_grinds_max.grid(row=1, column=3, sticky='ns', pady=0, padx=0)
+        # UI SETUP
+        self.setup_ui_gender(self.var_gender)
+        self.setup_ui_year(self.var_year)
+        self.sbx_grinds_min = self.setup_ui_spin(self.var_min, text="Min:", default=10, row=0, column=2)
+        self.sbx_grinds_max = self.setup_ui_spin(self.var_max, text="Max:", default=110, row=0, column=3)
+        self.setup_ui_search(self.var_search)
 
         # search bar UI
         self.entry_search = tk.Entry(self.mid_frame, textvariable=self.var_search, width=60)
         self.entry_search.grid(row=1, column=4, sticky='ns', pady=0, padx=0)
 
         # listbox UI and contents
-        info_columns = ["UUID", "Name", "Age", "Sex"]
+        self.info_columns = ["UUID", "Name", "Age", "Sex"]
         info = self._get_grinders_based_on_criteria()
-        self.tree_info = self.create_treeview(self.bottom_frame, info_columns, info,
+        self.tree_info = self.create_treeview(self.bottom_frame, self.info_columns, info,
                                               column=0, row=0, weight=0, _scrollbar=True)
         self.tree_info.bind("<<TreeviewSelect>>", self.display_grinds_for_tree)
 
         # setup Traces - callbacks for what the spinners will do.
-        self.var_min.trace("w", lambda x, y, z: self.populate_treeview(self.tree_info, info_columns,
+        self.var_min.trace("w", lambda x, y, z: self.populate_treeview(self.tree_info, self.info_columns,
                                                                        self._get_grinders_based_on_criteria()))
-        self.var_max.trace("w", lambda x, y, z: self.populate_treeview(self.tree_info, info_columns,
+        self.var_max.trace("w", lambda x, y, z: self.populate_treeview(self.tree_info, self.info_columns,
                                                                        self._get_grinders_based_on_criteria()))
-        self.var_search.trace("w", lambda x, y, z: self.populate_treeview(self.tree_info, info_columns,
+        self.var_search.trace("w", lambda x, y, z: self.populate_treeview(self.tree_info, self.info_columns,
                                                                           self._get_grinders_based_on_criteria()))
-        self.var_year.trace("w", lambda x, y, z: self.populate_treeview(self.tree_info, info_columns,
-                                                                        self._get_grinders_based_on_criteria()))
 
         self.headers = ["Date", "Start", "End", "Time"]
         self.tree_grind = self.create_treeview(self.bottom_frame, self.headers, [], column=2, row=0, weight=1)
@@ -186,6 +141,60 @@ class Grind(GUI):
         self.annotations = []
 
         self.log("[info] Total # of accounts: {}".format(len(self.grinders)))
+
+    def setup_ui_gender(self, var_gender):
+            lbl_gender = tk.Label(self.mid_frame, text="Gender:", anchor='w')
+            lbl_gender.grid(row=0, column=0, sticky='wnse')
+            var_gender.set('None')
+            choices = ['None', 'All', 'Males', 'Females', 'Unknowns']
+            option = tk.OptionMenu(self.mid_frame, var_gender, *choices)
+            option.config(width=7)
+            option.grid(row=1, column=0, sticky='ns', pady=0, padx=0)
+            var_gender.trace("w", lambda x, y, z: self._plot_grinds_for_all(
+                show_males=(var_gender.get() == "Males" or var_gender.get() == 'All'),
+                show_females=(var_gender.get() == "Females" or var_gender.get() == 'All'),
+                show_unknowns=(var_gender.get() == "Unknowns" or var_gender.get() == 'All')))
+
+    def setup_ui_year(self, var_year):
+            var_year.set("All Time")
+            lbl_year = tk.Label(self.mid_frame, text="Year:", anchor='w')
+            lbl_year.grid(row=0, column=1, sticky='wnse')
+
+            # setup combobox
+            collector = []
+            for uuid, data in self.grinders.items():
+                if data['grinds'] is not None:
+                    try:
+                        collector += [item['date'].split("-")[0] for item in data['grinds']]
+                    except TypeError as e:
+                        print(data['name'])
+                        print(data)
+
+            years = list(set(collector))
+            years.sort()
+            years.insert(0, 'All Time')
+
+            ddl_years = tk.OptionMenu(self.mid_frame, var_year, *years)
+            ddl_years.config(width=7)
+            ddl_years.grid(row=1, column=1, sticky='ns', pady=0, padx=0)
+            var_year.trace("w", lambda x, y, z: self.populate_treeview(
+                self.tree_info,
+                self.info_columns,
+                self._get_grinders_based_on_criteria()))
+
+    def setup_ui_spin(self, var_spin, text="notset", default=0, row=0, column=0):
+        var_spin.set(default)
+        lbl_spin = tk.Label(self.mid_frame, text=text, anchor='w')
+        lbl_spin.grid(row=row, column=column, sticky='wnse')
+
+        spin_box = tk.Spinbox(self.mid_frame, from_=0, to=4000, textvariable=var_spin, width=5)
+        spin_box.grid(row=(row+1), column=column, sticky='ns', pady=0, padx=0)
+
+        return spin_box
+
+    def setup_ui_search(self, var_search):
+        lbl_search = tk.Label(self.mid_frame, text="Search:", anchor='w')
+        lbl_search.grid(row=0, column=4, columnspan=2, sticky='wnse')
 
     def autolabel(self, rects):
         # attach some text labels
@@ -401,8 +410,7 @@ class Grind(GUI):
 
     # -- TreeView --------------------------------------------------------------------------
     def create_treeview(self, master, columns, rows, column=0, row=0, weight=0, _scrollbar=True):
-
-        tree = ttk.Treeview(master, height=1, columns=columns, show="headings")
+        tree = ttk.Treeview(master, height=15, columns=columns, show="headings")
 
         _row_span = 1
 

@@ -293,6 +293,35 @@ def correct_bad_grinds():
 
     print(counter)
 
+def grinds_over_100():
+    accounts = load_json_data()
+    centurions = os.path.expanduser("~/Documents/grousemountaindata_special.json")
+    special = load_json_data(_storage_path=centurions)
+    dirty = False
+    for uuid, data in accounts.items():
+        if data['grinds'] is not None and len(data['grinds']) > 100:
+            print(data['name'])
+            print(len(data['grinds']))
+            dirty = True
+            special[uuid] = data
+
+    if dirty:
+        dump_json_data(special, _storage_path=centurions)
+
+def merge_to_main_accounts(data_merge):
+    accounts = load_json_data()
+
+    for uuid, data in data_merge:
+        if uuid in accounts:
+            if accounts[uuid]['grinds'] is None:
+                accounts[uuid]['grinds'] = data['grinds']
+            else:
+                for grind in data['grinds']:
+                    pass
+
+
+
+
 if __name__ == "__main__":
     # uuid = <any valid account>
     # print(get_grind_data(uuid))
@@ -300,10 +329,10 @@ if __name__ == "__main__":
     # x = collect_grind_times([], 22597005000, page=1)
     # print(len(x))
     # 18014003000
-    correct_bad_grinds()
-    #collect_account_numbers(240000000000, 451000000000, 1000000)
-    #recheck_names("Service Unavailable")
-    split_accounts()
-
+    # correct_bad_grinds()
+    # collect_account_numbers(240000000000, 451000000000, 1000000)
+    # recheck_names("Service Unavailable")
+    # split_accounts()
+    grinds_over_100()
     #correct_bad_grinds()
     pass
