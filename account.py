@@ -138,7 +138,7 @@ def get_grind_data(number):
                                                                                             sex,
                                                                                             len(grinds)))
 
-            return str(number), name, sex, age, grinds
+            return str(number), name, age, sex, grinds
 
     except urllib.error.URLError as e:
         # print("{}: {}".format(number, e.reason))
@@ -308,18 +308,23 @@ def grinds_over_100():
     if dirty:
         dump_json_data(special, _storage_path=centurions)
 
-def merge_to_main_accounts(data_merge):
+def merge_to_main_accounts(_path_to_merge):
+    data_merge = load_json_data(_storage_path=_path_to_merge)
     accounts = load_json_data()
-
-    for uuid, data in data_merge:
+    dirty = False
+    for uuid, data in data_merge.items():
         if uuid in accounts:
             if accounts[uuid]['grinds'] is None:
                 accounts[uuid]['grinds'] = data['grinds']
             else:
                 for grind in data['grinds']:
-                    pass
+                    if grind not in accounts[uuid]['grinds']:
+                        accounts[uuid]['grinds'].append(grind)
+                        dirty = True
+                        print('Updating: {}'.format(data['name']))
 
-
+    if dirty:
+        dump_json_data(accounts)
 
 
 if __name__ == "__main__":
@@ -333,6 +338,8 @@ if __name__ == "__main__":
     # collect_account_numbers(240000000000, 451000000000, 1000000)
     # recheck_names("Service Unavailable")
     # split_accounts()
-    grinds_over_100()
+    # grinds_over_100()
+    data_merge = os.path.expanduser("~/Documents/grousemountaindata_special.json")
+    merge_to_main_accounts(data_merge)
     #correct_bad_grinds()
     pass

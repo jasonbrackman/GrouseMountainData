@@ -360,7 +360,7 @@ class Grind(GUI):
         filemenu.add_command(label="Clear Plots", command=self._clear_plots)
         filemenu.add_command(label="Plot Everything", command=self._plot_everything)
         filemenu.add_command(label="Switch Plot Type", command=self._switch_plot)
-        filemenu.add_command(label="Show Bar Graph of Men & Women Grind Totals", command=self._plot_grinds_for_all)
+        # filemenu.add_command(label="Show Bar Graph of Men & Women Grind Totals", command=self._plot_grinds_for_all)
 
         menubar.add_cascade(label="File", menu=filemenu)
 
