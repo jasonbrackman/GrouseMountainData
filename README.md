@@ -53,7 +53,7 @@ There are also clues as to how big the database is since the stats include how m
 season and for all time.
 
 # Account Numbers
-The majority of account numbers are based on an eleven digit account number.  Google has only cached a few of
+The majority of account numbers are based on an seven to twelve digit account number.  Google has only cached a few of
 these pages, but too few to make any kind of reduction to where a web scraper might look for the greatest number of
 hits.  Without some sort of reduction, the scraper would have to test against ALL combinations, which would take a long
 time.
@@ -62,7 +62,11 @@ Every time I would climb the mountain I would ask a few people what their grind 
 around their necks so they are always readily available and this isn't as awkward sounding as it might seem. In four
 weeks of casually asking, there was a pattern that slowly emerged.  Each person's number ended with the last
 three digits always being zeroes.  A majority numbers like 5000 or 15000, 6000, or 16000, etc.   So I began scraping all
-the numbers based on these endings.  This netted around 7000 of the approximate 11000 accounts.
+the numbers based on these endings.  This netted around 7000~9000 of the approximate 11000 accounts.
+
+The rest of the accounts were simply testing every number starting from '0' and moving up to '250000', stopping only
+because accounts stopped being hit.  The reason why I started at such a low number was because of the five accunts that
+Google did appear to spider, one was one of these low numbers.
 
 # The dataset
 The dataset is saved out into two JSON files.  One contains the successful hits, while the other contains the
@@ -93,7 +97,7 @@ it since you can play with so much.
 Once the GUI starts it will load the database (searches in your user directory) and will provide you a list of names
 that when selected, will provide the specific data and will plot them on the graph based on attempts.
 
-You can then select someone else and the plot will draw over the old one for comparisson.  If you need to clear the
-plots uses the file menu.
+You can then select someone else and the plot will draw over the old one for comparison.  The file menu also includes
+other options such as 'clear', to clear away all the plots currently shown.
 
 
