@@ -1,6 +1,7 @@
 import os
 import matplotlib
 
+# note that the 'TKAgg' is telling matplotlib to work with Tkinter
 matplotlib.use('TkAgg')
 
 import numpy as np
@@ -18,6 +19,26 @@ import tkinter.ttk as ttk
 
 
 class GUI:
+    """
+    This is the skeleton for the GUI layout.  It pretty much just packs a bunch of boxes together to create the
+    following:
+
+    ######################
+    #        top         #
+    ######################
+    #                    #
+    #        mid         #
+    #                    #
+    #                    #
+    ######################
+    #      bottom        #
+    ######################
+
+    There are some generic convenience functions as well, such as:
+        - a status bar filler for the bottom box
+        - a log command to fill the status bar
+        - a func to add an app icon.
+    """
     def __init__(self, parent):
         self.parent = parent
         # Build main container
@@ -54,7 +75,6 @@ class GUI:
 
 
 class Grind(GUI):
-    internet_checks = False
     plot_attempts = False
 
     # http://tableaufriction.blogspot.ca/2012/11/finally-you-can-use-tableau-data-colors.html
@@ -76,7 +96,8 @@ class Grind(GUI):
         # file menu
         parent.config(menu=self.add_file_menu(parent))
 
-        # required vars
+        # Vars to be accessed elsewhere in the instance.
+        self.var_plot = tk.StringVar()
         self.var_year = tk.StringVar()
         self.var_gender = tk.StringVar()
         self.var_min = tk.StringVar()
@@ -84,15 +105,16 @@ class Grind(GUI):
         self.var_search = tk.StringVar()
 
         # UI SETUP
-        self.setup_ui_gender(self.var_gender)
-        self.setup_ui_year(self.var_year)
-        self.sbx_grinds_min = self.setup_ui_spin(self.var_min, text="Min:", default=10, row=0, column=2)
-        self.sbx_grinds_max = self.setup_ui_spin(self.var_max, text="Max:", default=110, row=0, column=3)
-        self.setup_ui_search(self.var_search)
+        self.setup_ui_plot(self.var_plot, column=0)
+        self.setup_ui_gender(self.var_gender, column=1)
+        self.setup_ui_year(self.var_year, column=2)
+        self.sbx_grinds_min = self.setup_ui_spin(self.var_min, text="Min:", default=10, row=0, column=3)
+        self.sbx_grinds_max = self.setup_ui_spin(self.var_max, text="Max:", default=110, row=0, column=4)
+        self.setup_ui_search(self.var_search, column=5)
 
         # search bar UI
         self.entry_search = tk.Entry(self.mid_frame, textvariable=self.var_search, width=60)
-        self.entry_search.grid(row=1, column=4, sticky='ns', pady=0, padx=0)
+        self.entry_search.grid(row=1, column=5, sticky='ns', pady=0, padx=0)
 
         # listbox UI and contents
         self.info_columns = ["UUID", "Name", "Age", "Sex"]
@@ -142,45 +164,56 @@ class Grind(GUI):
 
         self.log("[info] Total # of accounts: {}".format(len(self.grinders)))
 
-    def setup_ui_gender(self, var_gender):
-            lbl_gender = tk.Label(self.mid_frame, text="Gender:", anchor='w')
-            lbl_gender.grid(row=0, column=0, sticky='wnse')
-            var_gender.set('None')
-            choices = ['None', 'All', 'Males', 'Females', 'Unknowns']
-            option = tk.OptionMenu(self.mid_frame, var_gender, *choices)
-            option.config(width=7)
-            option.grid(row=1, column=0, sticky='ns', pady=0, padx=0)
-            var_gender.trace("w", lambda x, y, z: self._plot_grinds_for_all(
-                show_males=(var_gender.get() == "Males" or var_gender.get() == 'All'),
-                show_females=(var_gender.get() == "Females" or var_gender.get() == 'All'),
-                show_unknowns=(var_gender.get() == "Unknowns" or var_gender.get() == 'All')))
+    # Setup UI
+    def setup_ui_plot(self, var_plot, column=0):
+        var_plot.set('Bar')
+        lbl_plot = tk.Label(self.mid_frame, text="Plot Type:", anchor='w')
+        lbl_plot.grid(row=0, column=column, sticky='wnse')
+        choices = ['Bar Buckets', 'Plot Attempts', 'Plot Dates']
+        option = tk.OptionMenu(self.mid_frame, var_plot, *choices)
+        option.config(width=7)
+        option.grid(row=1, column=column, sticky='ns', pady=0, padx=0)
+        var_plot.trace("w", lambda x, y, z: print(x, y, z))
 
-    def setup_ui_year(self, var_year):
-            var_year.set("All Time")
-            lbl_year = tk.Label(self.mid_frame, text="Year:", anchor='w')
-            lbl_year.grid(row=0, column=1, sticky='wnse')
+    def setup_ui_gender(self, var_gender, column=0):
+        var_gender.set('None')
+        lbl_gender = tk.Label(self.mid_frame, text="Gender:", anchor='w')
+        lbl_gender.grid(row=0, column=column, sticky='wnse')
+        choices = ['None', 'All', 'Males', 'Females', 'Unknowns']
+        option = tk.OptionMenu(self.mid_frame, var_gender, *choices)
+        option.config(width=7)
+        option.grid(row=1, column=column, sticky='ns', pady=0, padx=0)
+        var_gender.trace("w", lambda x, y, z: self._plot_grinds_for_all(
+            show_males=(var_gender.get() == "Males" or var_gender.get() == 'All'),
+            show_females=(var_gender.get() == "Females" or var_gender.get() == 'All'),
+            show_unknowns=(var_gender.get() == "Unknowns" or var_gender.get() == 'All')))
 
-            # setup combobox
-            collector = []
-            for uuid, data in self.grinders.items():
-                if data['grinds'] is not None:
-                    try:
-                        collector += [item['date'].split("-")[0] for item in data['grinds']]
-                    except TypeError as e:
-                        print(data['name'])
-                        print(data)
+    def setup_ui_year(self, var_year, column=0):
+        var_year.set("All Time")
+        lbl_year = tk.Label(self.mid_frame, text="Year:", anchor='w')
+        lbl_year.grid(row=0, column=column, sticky='wnse')
 
-            years = list(set(collector))
-            years.sort()
-            years.insert(0, 'All Time')
+        # setup combobox
+        collector = []
+        for uuid, data in self.grinders.items():
+            if data['grinds'] is not None:
+                try:
+                    collector += [item['date'].split("-")[0] for item in data['grinds']]
+                except TypeError as e:
+                    print(data['name'])
+                    print(data)
 
-            ddl_years = tk.OptionMenu(self.mid_frame, var_year, *years)
-            ddl_years.config(width=7)
-            ddl_years.grid(row=1, column=1, sticky='ns', pady=0, padx=0)
-            var_year.trace("w", lambda x, y, z: self.populate_treeview(
-                self.tree_info,
-                self.info_columns,
-                self._get_grinders_based_on_criteria()))
+        years = list(set(collector))
+        years.sort()
+        years.insert(0, 'All Time')
+
+        ddl_years = tk.OptionMenu(self.mid_frame, var_year, *years)
+        ddl_years.config(width=7)
+        ddl_years.grid(row=1, column=column, sticky='ns', pady=0, padx=0)
+        var_year.trace("w", lambda x, y, z: self.populate_treeview(
+            self.tree_info,
+            self.info_columns,
+            self._get_grinders_based_on_criteria()))
 
     def setup_ui_spin(self, var_spin, text="notset", default=0, row=0, column=0):
         var_spin.set(default)
@@ -192,10 +225,11 @@ class Grind(GUI):
 
         return spin_box
 
-    def setup_ui_search(self, var_search):
+    def setup_ui_search(self, var_search, column=0):
         lbl_search = tk.Label(self.mid_frame, text="Search:", anchor='w')
-        lbl_search.grid(row=0, column=4, columnspan=2, sticky='wnse')
+        lbl_search.grid(row=0, column=column, columnspan=2, sticky='wnse')
 
+    # Bar Charts
     def autolabel(self, rects):
         # attach some text labels
         total = sum([rect.get_height() for rect in rects])
@@ -210,6 +244,7 @@ class Grind(GUI):
         if autolabel:
             self.autolabel(bars)
 
+    # Plots
     def _plot_grinds_for_all(self, show_males=False, show_females=False, show_unknowns=False):
         self._clear_plots()
         females = []
@@ -227,7 +262,7 @@ class Grind(GUI):
                 elif 'Female' in sex:
                     females.append(grinds)
 
-        keys = list(range(0, 101, 5))
+        keys = list(range(0, 100, 5))
         y_males = []
         y_females = []
         y_unknowns = []
@@ -293,7 +328,7 @@ class Grind(GUI):
 
         try:
             info = [(uuid, data['name'], data['sex'], data['age']) for uuid, data in self.grinders.items()
-                    if data['grinds'] is not None and _min < len(data['grinds']) < _max and
+                    if data['grinds'] is not None and _min <= len(data['grinds']) <= _max and
                     (_year == "All Time" or any(date['date'].startswith(_year) for date in data['grinds'])) and
                     _search.lower() in data['name'].lower()]
         except TypeError as e:
@@ -301,6 +336,7 @@ class Grind(GUI):
             info = []
         return info
 
+    # Plot annotations
     def annotate_plot_points(self, point, x, y, label, axes, annotations):
         for index_x, index_y in zip(x, y):
             current = self.convert_seconds_to_timedelta(index_y)
@@ -333,6 +369,7 @@ class Grind(GUI):
             # plt.draw() is not enough using tkinter
             plt.gcf().canvas.draw()
 
+    # Time converters
     @staticmethod
     def convert_timedelta_to_seconds(_time, second_breakdown=60):
         hours, minutes, seconds = _time.split(":")
@@ -536,6 +573,9 @@ class Grind(GUI):
 
 
 def grouse_grind_app():
+    """
+    Loads up the UI for the program.
+    """
     root = tk.Tk()
     root.title("Grouse Grind App 0.5")
     #root.geometry("1040x720")

@@ -45,12 +45,17 @@ being active (it needs to be renewed each year).
 
 When I want to look at my specific stats page, the website points to a regular html page that is no longer sandboxed. It
 is a page that is likely intended to be shared, but its also not personal and looks something like:
-http://www.grousemountain.com/grind_stats/10000000000
+https://www.grousemountain.com/grind_stats/10000000000
 
-This portion of the website provides additional datapoints socially acceptable for a sport related event.  Items such as
-approximate age, sex, full name, along with all the Grinds, when they occurred, and when they ended are all available.
-There are also clues as to how big the database is since the stats include how many active users there are for both the
-season and for all time.
+Note the 's' in the https.  However, leaving off the s still links to a valid page.  I have not delved any deeper, but
+now realize that I don't really understand the difference.
+
+This non-sandboxed portion of the website provides additional data points socially acceptable for a sport related event.
+Items such as approximate age, sex, full name, along with all the Grinds, when they occurred, and when they ended are
+all available.  There are also clues as to how big the database is since the stats include how many active users there
+are for both the season and for all time.  It is interesting to note, however, that the actual database I was able to
+collect was larger than reported.  Some of this may be related to duplicated accounts, test accounts, and accounts that
+have been activated, but never actually recorded a Grind.
 
 # Account Numbers
 The majority of account numbers are based on an seven to twelve digit account number.  Google has only cached a few of
@@ -79,21 +84,22 @@ is the accounts.py file.
 
 The account.py contains all the tools needed to collect the account data.  Unfortunately, something happened in late
 June and while I was able to get access to more than the first 100 grinds, the entire site seems to be unable to serve
-those pages anymore.  The account.py file is currently using a backup plan to get only the first 100 items, which is,
-for most users way more than the majority will ever do.  Obviously outliers are very interesting, and so would like to
-see this part of their site return.
+those pages anymore.  The account.py file is currently using a backup plan to get only the last 100 items, which is,
+way more than the 95% will ever do.  Obviously outliers are very interesting, and so I would like to see this part of
+the site return.
 
 If you need a small subset of the data to simply test out the content -- you can comment out all but one of the account
-number endings .. and you'll get a smaller, but significant dataset.
+number endings and you'll get a smaller, but significant dataset.
 
 # The GUI
 I know a lot of people are going to hate on this, but its all done in tkinter and matplotlib.  While tkinter may be old,
 it got the job done -- and my exploration into qt was wrought with hardship on my Mac.  Whatever my next project will be
-will attempt to figure this out.
+I will attempt to figure this out.
 
 I've never used matplotlib before and it was probably too much fun to work with.  I ended up getting a bit distracted by
 it since you can play with so much.
 
+# Usage
 Once the GUI starts it will load the database (searches in your user directory) and will provide you a list of names
 that when selected, will provide the specific data and will plot them on the graph based on attempts.
 
