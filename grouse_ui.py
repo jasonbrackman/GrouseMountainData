@@ -417,7 +417,7 @@ class Grind(GUI):
         item_id = self.tree_info.focus()
         value = str(self.tree_info.item(item_id)['values'][0])
 
-        uuid, name, sex, age, grinds = account.get_grind_data(value)
+        uuid, name, sex, age, grinds = account.collect_grind_data(value)
         self.grinders[value]['sex'] = sex
         self.grinders[value]['age'] = age
         if self.grinders[value]['grinds'] is None:

@@ -7,6 +7,27 @@ import concurrent.futures
 from bs4 import BeautifulSoup
 
 
+def load_json_data(_storage_path=os.path.expanduser("~/Documents/grousemountaindata.json")):
+    print("[LOADING] {}".format(_storage_path))
+
+    # default accounts dict() to return if nothing has yet been saved to a file.
+    accounts = dict()
+    if os.path.isfile(_storage_path):
+        with open(_storage_path, 'r', ) as handle:
+            accounts = json.load(handle)
+
+    print("[LOADING] Complete!")
+
+    return accounts
+
+
+def dump_json_data(data, _storage_path=os.path.expanduser("~/Documents/grousemountaindata.json")):
+    print("[SAVING] {}".format(_storage_path))
+    with open(_storage_path, 'w') as handle:
+        json.dump(data, handle)
+    print("[SAVING] Complete!")
+
+
 def add_account(accounts, uuid=-1, name=None, age=None, sex=None, grinds=None):
     accounts[uuid] = {"name": name, "age": age, "sex": sex, "grinds": grinds}
     return accounts
@@ -80,28 +101,7 @@ def collect_grind_times(grind_times, uuid, _page=1):
     return grind_times
 
 
-def load_json_data(_storage_path=os.path.expanduser("~/Documents/grousemountaindata.json")):
-    print("[LOADING] {}".format(_storage_path))
-
-    # default accounts dict() to return if nothing has yet been saved to a file.
-    accounts = dict()
-    if os.path.isfile(_storage_path):
-        with open(_storage_path, 'r', ) as handle:
-            accounts = json.load(handle)
-
-    print("[LOADING] Complete!")
-
-    return accounts
-
-
-def dump_json_data(data, _storage_path=os.path.expanduser("~/Documents/grousemountaindata.json")):
-    print("[SAVING] {}".format(_storage_path))
-    with open(_storage_path, 'w') as handle:
-        json.dump(data, handle)
-    print("[SAVING] Complete!")
-
-
-def get_grind_data(number):
+def collect_grind_data(number):
     root_url = "http://www.grousemountain.com/grind_stats/{}/".format(number)
 
     try:
@@ -148,43 +148,10 @@ def get_grind_data(number):
         print(e)
 
 
-"""
-def does_account_exist(number):
-    root_url = "http://www.grousemountain.com/grind_stats/{}/".format(number)  # key2"
-
-    try:
-        with urllib.request.urlopen(root_url) as page:
-            soup = BeautifulSoup(page.read(390))
-
-            titles = soup.findAll('title')
-            for title in titles:
-                print("FOUND: {}: {}".format(number, title.string.strip().split("'s Grouse Grind Stats")[0]))
-                return number, title.string.strip().split("'s Grouse Grind Stats")[0]
-
-    except urllib.error.URLError as e:
-        # print("{}: {}".format(number, e.reason))
-        return number, e.reason
-
-    except ConnectionResetError as e:
-        print(e)
-
-
-def create_account(_accounts, uuid, username):
-    if "Not Found" not in username and "Service Unavailable" not in username:
-        print("[info] Getting Grind times for: {}".format(username))
-        grinds = collect_grind_times([], uuid)
-    else:
-        grinds = None
-
-    accounts = add_account(_accounts, uuid=uuid, name=username, grinds=grinds)
-    return accounts
-"""
-
-
 def thread_collect_accounts(accounts, numbers, pool=6):
     dirty = False
     with concurrent.futures.ProcessPoolExecutor(pool) as executor:
-        futures = [executor.submit(get_grind_data, number) for number in numbers]
+        futures = [executor.submit(collect_grind_data, number) for number in numbers]
         concurrent.futures.wait(futures)
 
         results = [future.result() for future in concurrent.futures.as_completed(futures)]
@@ -220,16 +187,16 @@ def collect_account_numbers(min, max, step):
 
     all_accounts = accounts.copy()
     all_accounts.update(accounts_not_found)
-    if max > 100000: #00000:
+    if max > 100000:  # 00000:
         # accounts seem to end in:
         options = [0]
-                   #8000,  # 18000,
-                   #7000, 17000,
-                   #6000, 16000,
-                   #5000, 15000,
-                   #4000, 14000,
-                   #3000, 13000,
-                   #2000, 12000]
+        # 8000,  # 18000,
+        # 7000, 17000,
+        # 6000, 16000,
+        # 5000, 15000,
+        # 4000, 14000,
+        # 3000, 13000,
+        # 2000, 12000]
         numbers = get_unknown_uuids(min, max, step, all_accounts, options)
     else:
         options = [0]
@@ -284,14 +251,15 @@ def correct_bad_grinds():
                 # print(uuid, data['grinds'])
                 numbers.append(uuid)
         if data['sex'] is None:
-            #print(data['name'])
-            #numbers.append(uuid)
+            # print(data['name'])
+            # numbers.append(uuid)
             pass
         if data['sex'] == 'Male':
             numbers.append(uuid)
     thread_collect_accounts(accounts, numbers)
 
     print(counter)
+
 
 def grinds_over_100():
     accounts = load_json_data()
@@ -307,6 +275,7 @@ def grinds_over_100():
 
     if dirty:
         dump_json_data(special, _storage_path=centurions)
+
 
 def merge_to_main_accounts(_path_to_merge):
     data_merge = load_json_data(_storage_path=_path_to_merge)
@@ -328,8 +297,8 @@ def merge_to_main_accounts(_path_to_merge):
 
 
 if __name__ == "__main__":
-    # uuid = <any valid account>
-    # print(get_grind_data(uuid))
+    # uuid = <VALID UUID>
+    # print(collect_grind_data(uuid))
 
     # x = collect_grind_times([], 22597005000, page=1)
     # print(len(x))
@@ -339,7 +308,7 @@ if __name__ == "__main__":
     # recheck_names("Service Unavailable")
     # split_accounts()
     # grinds_over_100()
-    data_merge = os.path.expanduser("~/Documents/grousemountaindata_special.json")
-    merge_to_main_accounts(data_merge)
-    #correct_bad_grinds()
+    # data_merge = os.path.expanduser("~/Documents/grousemountaindata_special.json")
+    # merge_to_main_accounts(data_merge)
+    # correct_bad_grinds()
     pass
