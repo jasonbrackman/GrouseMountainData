@@ -7,7 +7,7 @@ matplotlib.use('TkAgg')
 import numpy as np
 import matplotlib.pyplot as plt
 
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg  # , NavigationToolbar2TkAgg
 from matplotlib.dates import date2num, num2date
 
 import random
@@ -61,6 +61,7 @@ class GUI:
         self.status_msg = tk.StringVar()
         self.status_bar = tk.Label(parent, text=self.status_msg, bd=1, relief=tk.SUNKEN, anchor='w')
         self.status_bar.pack(side="bottom", fill="x")
+
         self.log("[info] Ready...")
         self.setup_app_icon()
 
@@ -105,16 +106,12 @@ class Grind(GUI):
         self.var_search = tk.StringVar()
 
         # UI SETUP
-        self.setup_ui_plot(self.var_plot, column=0)
+        # self.setup_ui_plot(self.var_plot, column=0)
         self.setup_ui_gender(self.var_gender, column=1)
         self.setup_ui_year(self.var_year, column=2)
         self.sbx_grinds_min = self.setup_ui_spin(self.var_min, text="Min:", default=10, row=0, column=3)
         self.sbx_grinds_max = self.setup_ui_spin(self.var_max, text="Max:", default=110, row=0, column=4)
-        self.setup_ui_search(self.var_search, column=5)
-
-        # search bar UI
-        self.entry_search = tk.Entry(self.mid_frame, textvariable=self.var_search, width=60)
-        self.entry_search.grid(row=1, column=5, sticky='ns', pady=0, padx=0)
+        self.setup_ui_search(column=5)
 
         # listbox UI and contents
         self.info_columns = ["UUID", "Name", "Age", "Sex"]
@@ -225,9 +222,12 @@ class Grind(GUI):
 
         return spin_box
 
-    def setup_ui_search(self, var_search, column=0):
+    def setup_ui_search(self, column=0):
         lbl_search = tk.Label(self.mid_frame, text="Search:", anchor='w')
         lbl_search.grid(row=0, column=column, columnspan=2, sticky='wnse')
+
+        search = tk.Entry(self.mid_frame, textvariable=self.var_search, width=60)
+        search.grid(row=1, column=5, sticky='ns', pady=0, padx=0)
 
     # Bar Charts
     def autolabel(self, rects):
@@ -235,7 +235,10 @@ class Grind(GUI):
         total = sum([rect.get_height() for rect in rects])
         for rect in rects:
             height = rect.get_height()
-            self.ax.text(rect.get_x()+rect.get_width()/2., 1.05*height, '{0:.1%}'.format(height/total), ha='center', va='bottom')
+            self.ax.text(rect.get_x()+rect.get_width()/2.,
+                         1.05*height,
+                         '{0:.1%}'.format(height/total),
+                         ha='center', va='bottom')
 
     def _display_bar_graph(self, x, y, width=2, color=(1, 0, 0), edgecolor='none', yerr=None, autolabel=False):
         # where something falls along the x-axis
@@ -314,7 +317,7 @@ class Grind(GUI):
                      transform=self.ax.transAxes,
                      fontsize=11)
         # self.ax.locator_params(nbins=25)
-        #self.ax.set_xticklabels(keys)
+        # self.ax.set_xticklabels(keys)
         self.dataplot.show()
         self.log("[info]  Males: {} // Females: {} // Unknowns: {}".format(len(males),
                                                                            len(females),
@@ -485,7 +488,8 @@ class Grind(GUI):
 
         tree.tag_configure('odd', background='#f0f0ff')
 
-    def change_numeric(self, data):
+    @staticmethod
+    def change_numeric(data):
         new_data = []
         if (data[0][0]).isdigit():
             for child, col in data:
@@ -578,7 +582,7 @@ def grouse_grind_app():
     """
     root = tk.Tk()
     root.title("Grouse Grind App 0.5")
-    #root.geometry("1040x720")
+    # root.geometry("1040x720")
     Grind(root)
     root.mainloop()
 

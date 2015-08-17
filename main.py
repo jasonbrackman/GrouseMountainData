@@ -63,4 +63,3 @@ if __name__ == "__main__":
         unknown = 0 if len(unknown) == 0 else unknown[0][1]
 
         print("{:7}{:8}{:11}{:4}".format(female, male, unknown, index))
-ƒ
