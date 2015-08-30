@@ -105,7 +105,7 @@ class Grind(GUI):
         self.var_max = tk.StringVar()
         self.var_search = tk.StringVar()
 
-        # UI SETUP
+        # UI Presentation SETUP
         # self.setup_ui_plot(self.var_plot, column=0)
         self.setup_ui_gender(self.var_gender, column=1)
         self.setup_ui_year(self.var_year, column=2)
@@ -155,24 +155,32 @@ class Grind(GUI):
         self.figure.canvas.mpl_connect('motion_notify_event', self.on_move)
 
         self.dataplot.get_tk_widget().grid(columnspan=4, sticky='nesw')
-        self._update_plot([], label=None)
-        self.dataplot.show()
+        # self._update_plot([], label=None)
+        # self.dataplot.show()
         self.annotations = []
 
         self.log("[info] Total # of accounts: {}".format(len(self.grinders)))
 
     # Setup UI
-    def setup_ui_plot(self, var_plot, column=0):
-        var_plot.set('Bar')
-        lbl_plot = tk.Label(self.mid_frame, text="Plot Type:", anchor='w')
-        lbl_plot.grid(row=0, column=column, sticky='wnse')
-        choices = ['Bar Buckets', 'Plot Attempts', 'Plot Dates']
-        option = tk.OptionMenu(self.mid_frame, var_plot, *choices)
-        option.config(width=7)
-        option.grid(row=1, column=column, sticky='ns', pady=0, padx=0)
-        var_plot.trace("w", lambda x, y, z: print(x, y, z))
+    # def setup_ui_plot(self, var_plot, column=0):
+    #     var_plot.set('Bar')
+    #     lbl_plot = tk.Label(self.mid_frame, text="Plot Type:", anchor='w')
+    #     lbl_plot.grid(row=0, column=column, sticky='wnse')
+    #     choices = ['Bar Buckets', 'Plot Attempts', 'Plot Dates']
+    #     option = tk.OptionMenu(self.mid_frame, var_plot, *choices)
+    #     option.config(width=7)
+    #     option.grid(row=1, column=column, sticky='ns', pady=0, padx=0)
+    #     var_plot.trace("w", lambda x, y, z: print(x, y, z))
+    #
 
     def setup_ui_gender(self, var_gender, column=0):
+        """
+        Sets up a drop down list of options with a corresponding callback (trace) depending on what is chosen.
+        -- Gender Setup
+        :param var_gender: a tkinter string variable
+        :param column: what column should the drop down box be placed into.
+        :return:
+        """
         var_gender.set('None')
         lbl_gender = tk.Label(self.mid_frame, text="Gender:", anchor='w')
         lbl_gender.grid(row=0, column=column, sticky='wnse')
@@ -180,7 +188,7 @@ class Grind(GUI):
         option = tk.OptionMenu(self.mid_frame, var_gender, *choices)
         option.config(width=7)
         option.grid(row=1, column=column, sticky='ns', pady=0, padx=0)
-        var_gender.trace("w", lambda x, y, z: self._plot_grinds_for_all(
+        var_gender.trace("w", lambda x, y, z: self._plot_grinds_completed_by_gender(
             show_males=(var_gender.get() == "Males" or var_gender.get() == 'All'),
             show_females=(var_gender.get() == "Females" or var_gender.get() == 'All'),
             show_unknowns=(var_gender.get() == "Unknowns" or var_gender.get() == 'All')))
@@ -248,7 +256,7 @@ class Grind(GUI):
             self.autolabel(bars)
 
     # Plots
-    def _plot_grinds_for_all(self, show_males=False, show_females=False, show_unknowns=False):
+    def _plot_grinds_completed_by_gender(self, show_males=False, show_females=False, show_unknowns=False):
         self._clear_plots()
         females = []
         males = []
@@ -400,7 +408,7 @@ class Grind(GUI):
         filemenu.add_command(label="Clear Plots", command=self._clear_plots)
         filemenu.add_command(label="Plot Everything", command=self._plot_everything)
         filemenu.add_command(label="Switch Plot Type", command=self._switch_plot)
-        # filemenu.add_command(label="Show Bar Graph of Men & Women Grind Totals", command=self._plot_grinds_for_all)
+        # filemenu.add_command(label="Show Bar Graph of Men & Women Grind Totals", command=self._plot_grinds_completed_by_gender)
 
         menubar.add_cascade(label="File", menu=filemenu)
 
@@ -531,6 +539,14 @@ class Grind(GUI):
             self._update_plot(collector, label=self.grinders[value]['name'])
 
     def _update_plot(self, data, label=None, legend=True):
+        # find out if current plot line is setup for dates:
+        if self.var_gender.get() in ["Males", "Females", "Unknowns", "All"]:
+            current_ticks = self.ax.get_xticks().tolist()
+            if 0.0 in current_ticks:
+                self._clear_plots()
+
+
+
         dates = [date2num(datetime.datetime.strptime(grind[0], "%Y-%m-%d")) for grind in data]
         times = [self.convert_timedelta_to_seconds(grind[3]) for grind in data]
 
@@ -545,9 +561,9 @@ class Grind(GUI):
                 # matplotlib date format object
                 hfmt = matplotlib.dates.DateFormatter('%Y-%m-%d')
                 items = self.ax.get_xticks().tolist()
-                if items[0] > 1:
-                    self.ax.set_xticklabels([num2date(item) for item in items if int(item) > 1], rotation=42,
-                                            fontsize=11)
+
+                if int(items[0]) > 1:
+                    self.ax.set_xticklabels([num2date(item) for item in items], rotation=42, fontsize=11)
                     self.ax.xaxis.set_major_formatter(hfmt)
 
             self.annotate_plot_points(point, dates, times, label, self.axes, self.annotations)
