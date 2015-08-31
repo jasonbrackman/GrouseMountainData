@@ -327,12 +327,12 @@ def merge_to_main_accounts(_path_to_merge):
         dump_json_data(accounts)
 
 
-def update_accounts(min=99, start=30000000, stop=60000000):
+def update_accounts(min=99, start=60000000, stop=70000000):
     current_date = datetime.datetime.now().strftime("%Y-%m-%d")
     accounts = load_json_data()
     dirty = False
     for uuid, data in accounts.items():
-        if len(accounts[uuid]['grinds']) > 99 and start < int(uuid) < stop:
+        if len(accounts[uuid]['grinds']) > min and start < int(uuid) < stop:
             uuid, name, sex, age, grinds = collect_grind_data(uuid)
 
             if accounts[uuid]['grinds'] is None:
