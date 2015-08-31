@@ -545,8 +545,6 @@ class Grind(GUI):
             if 0.0 in current_ticks:
                 self._clear_plots()
 
-
-
         dates = [date2num(datetime.datetime.strptime(grind[0], "%Y-%m-%d")) for grind in data]
         times = [self.convert_timedelta_to_seconds(grind[3]) for grind in data]
 

@@ -1,6 +1,7 @@
 import os
 import re
 import json
+import datetime
 import urllib.request
 import urllib.error
 import concurrent.futures
@@ -28,7 +29,7 @@ def dump_json_data(data, _storage_path=os.path.expanduser("~/Documents/grousemou
     print("[SAVING] Complete!")
 
 
-def add_account(accounts, uuid=-1, name=None, age=None, sex=None, grinds=None):
+def add_account(accounts, uuid=-1, name=None, age=None, sex=None, grinds=None, last_update=None):
     accounts[uuid] = {"name": name, "age": age, "sex": sex, "grinds": grinds}
     return accounts
 
@@ -40,9 +41,8 @@ def collect_grind_times(grind_times, uuid, _page=1):
     the page is used if there are several pages of json data regarding past grind times.
     """
     titles = ('date', 'start', 'end', 'time')
-    pattern = re.compile('.*page=(\d.*)')
+    pattern = re.compile('.*page=(\d.*)&tab.*')
 
-    url_02 = "http://www.grousemountain.com/grind_stats/{0}".format(uuid)
     """
     # the first URL was working up until the end of June/2015 -- then the site broke.??
     # the second URL must be retrieving the data internally, but the history is incomplete, only showing 100 climbs.
@@ -66,7 +66,7 @@ def collect_grind_times(grind_times, uuid, _page=1):
                 data = [d.strip() for d in data]
                 if len(data) == 4:
                     times = dict(zip(titles, data))
-                    if times not in grind_times:
+                    if len(times) > 0 and times not in grind_times:
                         grind_times.append(times)
 
             pages = _page
@@ -82,7 +82,10 @@ def collect_grind_times(grind_times, uuid, _page=1):
 
     except urllib.error.URLError as e:
         print("[ERROR] {}".format(e.reason))
-    """
+
+
+    # This still works, but does not dig as deep.
+    url_02 = "http://www.grousemountain.com/grind_stats/{0}".format(uuid)
     try:
         with urllib.request.urlopen(url_02) as request:
             soup = BeautifulSoup(request.read(), "html.parser")
@@ -94,6 +97,34 @@ def collect_grind_times(grind_times, uuid, _page=1):
                     times = dict(zip(titles, times))
                     if len(times) > 0 and times not in grind_times:
                         grind_times.append(times)
+
+    except urllib.error.URLError as e:
+        print("[ERROR] {}".format(e.reason))
+    """
+
+    url_03 = "http://www.grousemountain.com/grind_stats/{0}?page={1}&tab=log".format(uuid, _page)
+    try:
+        with urllib.request.urlopen(url_03) as request:
+            soup = BeautifulSoup(request.read(), "html.parser")
+
+            data = [table.findAll('tr') for table in soup.findAll('table', {'class': 'table grind_log thin'})]
+            for grinds in data:
+                for grind in grinds:
+                    times = [item.string.strip() for item in grind.findAll('td')]
+                    times = dict(zip(titles, times))
+                    if len(times) > 0 and times not in grind_times:
+                        grind_times.append(times)
+
+            pages = _page
+            element = soup.find('a', text=re.compile('Last'))
+            if element is not None:
+                results = re.match(pattern, element['href'])
+                if results is not None:
+                    # print("Result: Pages={}".format(results.groups()[0]))
+                    pages = int(results.groups()[0])
+
+            if _page < pages:
+                collect_grind_times(grind_times, uuid, _page=_page + 1)
 
     except urllib.error.URLError as e:
         print("[ERROR] {}".format(e.reason))
@@ -296,7 +327,29 @@ def merge_to_main_accounts(_path_to_merge):
         dump_json_data(accounts)
 
 
+def update_accounts(min=99, start=30000000, stop=60000000):
+    current_date = datetime.datetime.now().strftime("%Y-%m-%d")
+    accounts = load_json_data()
+    dirty = False
+    for uuid, data in accounts.items():
+        if len(accounts[uuid]['grinds']) > 99 and start < int(uuid) < stop:
+            uuid, name, sex, age, grinds = collect_grind_data(uuid)
+
+            if accounts[uuid]['grinds'] is None:
+                accounts[uuid]['grinds'] = list()
+
+            for grind in grinds:
+                if grind not in accounts[uuid]['grinds']:
+                    accounts[uuid]['grinds'].append(grind)
+                    print('\tFound New Grind...')
+                    dirty = True
+
+            accounts[uuid]['last_update'] = current_date
+
+    dump_json_data(accounts)
+
 if __name__ == "__main__":
+    # update_accounts()
     # uuid = <VALID UUID>
     # print(collect_grind_data(uuid))
 
