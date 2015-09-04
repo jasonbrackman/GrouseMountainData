@@ -127,6 +127,10 @@ class Grind(GUI):
                                                                        self._get_grinders_based_on_criteria()))
         self.var_search.trace("w", lambda x, y, z: self.populate_treeview(self.tree_info, self.info_columns,
                                                                           self._get_grinders_based_on_criteria()))
+        self.var_year.trace("w", lambda x, y, z: self.populate_treeview(self.tree_info, self.info_columns,
+                                                                        self._get_grinders_based_on_criteria()))
+        self.var_gender.trace("w", lambda x, y, z: self.populate_treeview(self.tree_info, self.info_columns,
+                                                                          self._get_grinders_based_on_criteria()))
 
         self.headers = ["Date", "Start", "End", "Time"]
         self.tree_grind = self.create_treeview(self.bottom_frame, self.headers, [], column=2, row=0, weight=1)
