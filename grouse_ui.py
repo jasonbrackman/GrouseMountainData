@@ -243,10 +243,11 @@ class Grind(GUI):
         total = sum([rect.get_height() for rect in rects])
         for rect in rects:
             height = rect.get_height()
-            self.ax.text(rect.get_x()+rect.get_width()/2.,
-                         1.05*height,
-                         '{0:.1%}'.format(height/total),
-                         ha='center', va='bottom')
+            if height != 0 and total != 0:
+                self.ax.text(rect.get_x()+rect.get_width()/2.,
+                             1.05*height,
+                             '{0:.1%}'.format(height/total),
+                             ha='center', va='bottom')
 
     def _display_bar_graph(self, x, y, width=2, color=(1, 0, 0), edgecolor='none', yerr=None, autolabel=False):
         # where something falls along the x-axis
@@ -258,13 +259,21 @@ class Grind(GUI):
     # Plots
     def _plot_grinds_completed_by_gender(self, show_males=False, show_females=False, show_unknowns=False):
         self._clear_plots()
+
         females = []
         males = []
         unknowns = []
+
+        # Collect and bucket the data
+        filter = None if not self.var_year.get().isdigit() else self.var_year.get()
         for uuid, data in self.grinders.items():
             if data['grinds'] is not None:
                 sex = data['age']
                 grinds = len(data['grinds'])
+
+                if filter is not None:
+                    grinds = [item for item in data['grinds'] if filter in item['date']]
+                    grinds = len(grinds)
 
                 if sex is None:
                     unknowns.append(grinds)
@@ -318,7 +327,7 @@ class Grind(GUI):
         if showlabel is False:
             gender = "Males, Females, and Unknown gender"
 
-        self.ax.set_title('Breakdown of Grinds Completed by {}'.format(gender))
+        self.ax.set_title('Breakdown of Grinds Completed by {} ({})'.format(gender, self.var_year.get()))
         self.ax.set_xlabel('# of Attempts')
         self.ax.set_ylabel('# of People')
         self.ax.text(0, -0.45, "Data source: https://www.grousemountain.com/grind_stats",
@@ -336,10 +345,12 @@ class Grind(GUI):
         _max = 0 if self.sbx_grinds_max.get() == '' else int(self.sbx_grinds_max.get())
         _search = self.var_search.get()
         _year = self.var_year.get()
+        _sex = self.var_gender.get()
 
         try:
             info = [(uuid, data['name'], data['sex'], data['age']) for uuid, data in self.grinders.items()
                     if data['grinds'] is not None and _min <= len(data['grinds']) <= _max and
+                    (_sex == 'All' or str(data['age']) in _sex) and  # age and sex are reversed :(
                     (_year == "All Time" or any(date['date'].startswith(_year) for date in data['grinds'])) and
                     _search.lower() in data['name'].lower()]
         except TypeError as e:
