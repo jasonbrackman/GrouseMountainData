@@ -30,7 +30,7 @@ def dump_json_data(data, _storage_path=os.path.expanduser("~/Documents/grousemou
 
 
 def add_account(accounts, uuid=-1, name=None, age=None, sex=None, grinds=None, last_update=None):
-    accounts[uuid] = {"name": name, "age": age, "sex": sex, "grinds": grinds}
+    accounts[uuid] = {"name": name, "age": age, "sex": sex, "grinds": grinds, 'last_update': last_update}
     return accounts
 
 
@@ -327,29 +327,33 @@ def merge_to_main_accounts(_path_to_merge):
         dump_json_data(accounts)
 
 
-def update_accounts(min=99, start=60000000, stop=70000000):
+def update_accounts(min=0, start=0, stop=445000000000000):
     current_date = datetime.datetime.now().strftime("%Y-%m-%d")
     accounts = load_json_data()
     dirty = False
     for uuid, data in accounts.items():
         if len(accounts[uuid]['grinds']) > min and start < int(uuid) < stop:
-            uuid, name, sex, age, grinds = collect_grind_data(uuid)
 
-            if accounts[uuid]['grinds'] is None:
-                accounts[uuid]['grinds'] = list()
+            if 'last_update' not in accounts[uuid]:
+                # print(uuid, "Needs Updating...")
 
-            for grind in grinds:
-                if grind not in accounts[uuid]['grinds']:
-                    accounts[uuid]['grinds'].append(grind)
-                    print('\tFound New Grind...')
-                    dirty = True
+                uuid, name, sex, age, grinds = collect_grind_data(uuid)
 
-            accounts[uuid]['last_update'] = current_date
+                if accounts[uuid]['grinds'] is None:
+                    accounts[uuid]['grinds'] = list()
+
+                for grind in grinds:
+                    if grind not in accounts[uuid]['grinds']:
+                        accounts[uuid]['grinds'].append(grind)
+                        print('\tFound New Grind...')
+                        dirty = True
+
+                accounts[uuid]['last_update'] = current_date
 
     dump_json_data(accounts)
 
 if __name__ == "__main__":
-    # update_accounts()
+    update_accounts()
     # uuid = <VALID UUID>
     # print(collect_grind_data(uuid))
 

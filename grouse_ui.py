@@ -50,7 +50,7 @@ class GUI:
         self.top_frame.pack(side="top", fill="y", expand=False)
 
         # mid Frame
-        self.mid_frame = tk.Frame(self.main_container, background="gray")
+        self.mid_frame = tk.Frame(self.main_container, background="white")
         self.mid_frame.pack(side="top", fill="x", expand=False)
 
         # Bottom Frame
@@ -106,15 +106,15 @@ class Grind(GUI):
         self.var_search = tk.StringVar()
 
         # UI Presentation SETUP
-        # self.setup_ui_plot(self.var_plot, column=0)
+        self.setup_ui_plot(self.var_plot, column=0)
         self.setup_ui_gender(self.var_gender, column=1)
         self.setup_ui_year(self.var_year, column=2)
-        self.sbx_grinds_min = self.setup_ui_spin(self.var_min, text="Min:", default=10, row=0, column=3)
-        self.sbx_grinds_max = self.setup_ui_spin(self.var_max, text="Max:", default=110, row=0, column=4)
+        self.sbx_grinds_min = self.setup_ui_spin(self.var_min, text="Min:", default=0, row=0, column=3)
+        self.sbx_grinds_max = self.setup_ui_spin(self.var_max, text="Max:", default=3000, row=0, column=4)
         self.setup_ui_search(column=5)
 
         # listbox UI and contents
-        self.info_columns = ["UUID", "Name", "Age", "Sex"]
+        self.info_columns = ["UUID", "Name", "Age", "Sex", "Grinds"]
         info = self._get_grinders_based_on_criteria()
         self.tree_info = self.create_treeview(self.bottom_frame, self.info_columns, info,
                                               column=0, row=0, weight=0, _scrollbar=True)
@@ -166,16 +166,15 @@ class Grind(GUI):
         self.log("[info] Total # of accounts: {}".format(len(self.grinders)))
 
     # Setup UI
-    # def setup_ui_plot(self, var_plot, column=0):
-    #     var_plot.set('Bar')
-    #     lbl_plot = tk.Label(self.mid_frame, text="Plot Type:", anchor='w')
-    #     lbl_plot.grid(row=0, column=column, sticky='wnse')
-    #     choices = ['Bar Buckets', 'Plot Attempts', 'Plot Dates']
-    #     option = tk.OptionMenu(self.mid_frame, var_plot, *choices)
-    #     option.config(width=7)
-    #     option.grid(row=1, column=column, sticky='ns', pady=0, padx=0)
-    #     var_plot.trace("w", lambda x, y, z: print(x, y, z))
-    #
+    def setup_ui_plot(self, var_plot, column=0):
+        var_plot.set('Bar Buckets')
+        lbl_plot = tk.Label(self.mid_frame, text="Plot Type:", anchor='w')
+        lbl_plot.grid(row=0, column=column, sticky='wnse', padx=5)
+        choices = ['Bar Buckets', 'Plot Attempts', 'Plot Dates']
+        option = tk.OptionMenu(self.mid_frame, var_plot, *choices)
+        option.config(width=10)
+        option.grid(row=1, column=column, sticky='ns', pady=0, padx=0)
+        var_plot.trace("w", lambda x, y, z: print(x, y, z))
 
     def setup_ui_gender(self, var_gender, column=0):
         """
@@ -185,22 +184,22 @@ class Grind(GUI):
         :param column: what column should the drop down box be placed into.
         :return:
         """
-        var_gender.set('None')
+        var_gender.set('All')
         lbl_gender = tk.Label(self.mid_frame, text="Gender:", anchor='w')
-        lbl_gender.grid(row=0, column=column, sticky='wnse')
-        choices = ['None', 'All', 'Males', 'Females', 'Unknowns']
+        lbl_gender.grid(row=0, column=column, sticky='wnse', padx=4)
+        choices = ['All', 'Males', 'Females', 'Nones']
         option = tk.OptionMenu(self.mid_frame, var_gender, *choices)
         option.config(width=7)
         option.grid(row=1, column=column, sticky='ns', pady=0, padx=0)
         var_gender.trace("w", lambda x, y, z: self._plot_grinds_completed_by_gender(
             show_males=(var_gender.get() == "Males" or var_gender.get() == 'All'),
             show_females=(var_gender.get() == "Females" or var_gender.get() == 'All'),
-            show_unknowns=(var_gender.get() == "Unknowns" or var_gender.get() == 'All')))
+            show_unknowns=(var_gender.get() == "Nones" or var_gender.get() == 'All')))
 
     def setup_ui_year(self, var_year, column=0):
         var_year.set("All Time")
         lbl_year = tk.Label(self.mid_frame, text="Year:", anchor='w')
-        lbl_year.grid(row=0, column=column, sticky='wnse')
+        lbl_year.grid(row=0, column=column, sticky='news')
 
         # setup combobox
         collector = []
@@ -286,7 +285,8 @@ class Grind(GUI):
                 elif 'Female' in sex:
                     females.append(grinds)
 
-        keys = list(range(0, 100, 5))
+        bucket_grinds_by = 5
+        keys = list(range(0, 100, bucket_grinds_by))
         y_males = []
         y_females = []
         y_unknowns = []
@@ -332,15 +332,21 @@ class Grind(GUI):
             gender = "Males, Females, and Unknown gender"
 
         self.ax.set_title('Breakdown of Grinds Completed by {} ({})'.format(gender, self.var_year.get()))
-        self.ax.set_xlabel('# of Attempts')
+        self.ax.set_xlabel('Attempts (in incremental buckets of {})'.format(bucket_grinds_by))
         self.ax.set_ylabel('# of People')
         self.ax.text(0, -0.45, "Data source: https://www.grousemountain.com/grind_stats",
                      transform=self.ax.transAxes,
                      fontsize=11)
         # self.ax.locator_params(nbins=25)
-        # self.ax.set_xticklabels(keys)
+
+        new_ticks = [item for item in keys if item != 0]
+        new_ticks.append(max(new_ticks) + bucket_grinds_by)
+        self.ax.set_xticks([t-_width/2 for t in new_ticks])
+
+        new_ticks[-1] = "{}+".format(new_ticks[-1])
+        self.ax.set_xticklabels(new_ticks)
         self.dataplot.show()
-        self.log("[info]  Males: {} // Females: {} // Unknowns: {}".format(len(males),
+        self.log("[info]  Males: {} // Females: {} // Nones: {}".format(len(males),
                                                                            len(females),
                                                                            len(unknowns)))
 
@@ -352,7 +358,8 @@ class Grind(GUI):
         _sex = self.var_gender.get()
 
         try:
-            info = [(uuid, data['name'], data['sex'], data['age']) for uuid, data in self.grinders.items()
+            info = [(uuid, data['name'], data['sex'], data['age'], len(data['grinds']))
+                    for uuid, data in self.grinders.items()
                     if data['grinds'] is not None and _min <= len(data['grinds']) <= _max and
                     (_sex == 'All' or str(data['age']) in _sex) and  # age and sex are reversed :(
                     (_year == "All Time" or any(date['date'].startswith(_year) for date in data['grinds'])) and
@@ -360,6 +367,12 @@ class Grind(GUI):
         except TypeError as e:
             print(e)
             info = []
+
+        self.log("Number of accounts found: {}".format(len(info)))
+
+        # sort by name (case insensitive)
+        info = sorted(info, key=lambda info: info[1].lower())
+
         return info
 
     # Plot annotations
@@ -418,12 +431,10 @@ class Grind(GUI):
         menubar = tk.Menu(parent, tearoff=1)
         filemenu = tk.Menu(menubar)
         filemenu.add_command(label="Update Account", command=self._update_account)
-        # filemenu.add_command(label="Load Account", command=self._load_account)
         filemenu.add_command(label="Save Changes", command=self._save_changes)
         filemenu.add_command(label="Clear Plots", command=self._clear_plots)
         filemenu.add_command(label="Plot Everything", command=self._plot_everything)
         filemenu.add_command(label="Switch Plot Type", command=self._switch_plot)
-        # filemenu.add_command(label="Show Bar Graph of Men & Women Grind Totals", command=self._plot_grinds_completed_by_gender)
 
         menubar.add_cascade(label="File", menu=filemenu)
 
@@ -498,9 +509,15 @@ class Grind(GUI):
 
         for col in columns:
             tree.heading(col, text=col, command=lambda c=col: self.sortby(tree, c, 0))
-            _width = 140 if col == "Name" else 100
-            if col == 'Date' or col == 'Start' or col == 'End' or col == 'Time':
+
+            _width = 140
+            if col == "Name":
+                _width = 125
+            elif col in ("Grinds", "Age", "Sex"):
+                _width = 60
+            elif col == 'Date' or col == 'Start' or col == 'End' or col == 'Time':
                 _width = None
+
             tree.column(col, width=_width)
 
         for index, row in enumerate(rows):
@@ -538,9 +555,11 @@ class Grind(GUI):
         item_id = self.tree_info.focus()
         value = str(self.tree_info.item(item_id)['values'][0])
 
-        self.log("[info] Name: {} -- UUID: {} -- Grinds: {}".format(self.grinders[value]['name'],
-                                                                    value,
-                                                                    len(self.grinders[value]['grinds'])))
+        self.log("[info] Name: {} -- UUID: {} -- Grinds: {} -- Last Updated: {}".format(
+            self.grinders[value]['name'],
+            value,
+            len(self.grinders[value]['grinds']),
+            self.grinders[value]['last_update']))
 
         grinds = self.grinders[value]['grinds']
         year = self.var_year.get()
@@ -555,7 +574,7 @@ class Grind(GUI):
 
     def _update_plot(self, data, label=None, legend=True):
         # find out if current plot line is setup for dates:
-        if self.var_gender.get() in ["Males", "Females", "Unknowns", "All"]:
+        if self.var_gender.get() in ["Males", "Females", "Nones", "All"]:
             current_ticks = self.ax.get_xticks().tolist()
             if 0.0 in current_ticks:
                 self._clear_plots()
@@ -599,6 +618,7 @@ class Grind(GUI):
         plot_type = "Attempt" if self.plot_attempts else "Dates"
         self.ax.set_title('Minutes To Complete Grouse Grind Plotted By {}'.format(plot_type))
         self.ax.set_ylabel('Duration (minutes)')
+
         self.ax.text(0, -0.45, "Data source: https://www.grousemountain.com/grind_stats",
                      transform=self.ax.transAxes,
                      fontsize=11)
