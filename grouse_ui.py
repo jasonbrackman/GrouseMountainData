@@ -286,7 +286,7 @@ class Grind(GUI):
                     females.append(grinds)
 
         bucket_grinds_by = 5
-        keys = list(range(0, 100, bucket_grinds_by))
+        keys = list(range(0, 105, bucket_grinds_by))
         y_males = []
         y_females = []
         y_unknowns = []
@@ -332,7 +332,7 @@ class Grind(GUI):
             gender = "Males, Females, and Unknown gender"
 
         self.ax.set_title('Breakdown of Grinds Completed by {} ({})'.format(gender, self.var_year.get()))
-        self.ax.set_xlabel('Attempts (in incremental buckets of {})'.format(bucket_grinds_by))
+        self.ax.set_xlabel('Grinds Completed (within incremental buckets of {})'.format(bucket_grinds_by))
         self.ax.set_ylabel('# of People')
         self.ax.text(0, -0.45, "Data source: https://www.grousemountain.com/grind_stats",
                      transform=self.ax.transAxes,
@@ -343,7 +343,7 @@ class Grind(GUI):
         new_ticks.append(max(new_ticks) + bucket_grinds_by)
         self.ax.set_xticks([t-_width/2 for t in new_ticks])
 
-        new_ticks[-1] = "{}+".format(new_ticks[-1])
+        new_ticks[-1] = ">100"
         self.ax.set_xticklabels(new_ticks)
         self.dataplot.show()
         self.log("[info]  Males: {} // Females: {} // Nones: {}".format(len(males),
@@ -369,6 +369,16 @@ class Grind(GUI):
             info = []
 
         self.log("Number of accounts found: {}".format(len(info)))
+
+        for uuid, data in self.grinders.items():
+            max = 0
+            for stats in data['grinds']:
+                if 'time' in stats:
+                    hours, min, sec = stats['time'].split(":")
+                    tis = int(hours)*3600 + int(min)*60 + int(sec)
+                    if tis > max:
+                        max = tis
+           # print(max)
 
         # sort by name (case insensitive)
         info = sorted(info, key=lambda info: info[1].lower())
