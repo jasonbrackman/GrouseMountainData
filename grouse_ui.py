@@ -168,7 +168,7 @@ class Grind(GUI):
     # Setup UI
     def setup_ui_plot(self, var_plot, column=0):
         var_plot.set('Bar Buckets')
-        lbl_plot = tk.Label(self.mid_frame, text="Plot Type:", anchor='w')
+        lbl_plot = tk.Label(self.mid_frame, text="Plot Type:", anchor='w', background="white")
         lbl_plot.grid(row=0, column=column, sticky='wnse', padx=5)
         choices = ['Bar Buckets', 'Plot Attempts', 'Plot Dates']
         option = tk.OptionMenu(self.mid_frame, var_plot, *choices)
@@ -185,7 +185,7 @@ class Grind(GUI):
         :return:
         """
         var_gender.set('All')
-        lbl_gender = tk.Label(self.mid_frame, text="Gender:", anchor='w')
+        lbl_gender = tk.Label(self.mid_frame, text="Gender:", anchor='w', background="white")
         lbl_gender.grid(row=0, column=column, sticky='wnse', padx=4)
         choices = ['All', 'Males', 'Females', 'Nones']
         option = tk.OptionMenu(self.mid_frame, var_gender, *choices)
@@ -198,7 +198,7 @@ class Grind(GUI):
 
     def setup_ui_year(self, var_year, column=0):
         var_year.set("All Time")
-        lbl_year = tk.Label(self.mid_frame, text="Year:", anchor='w')
+        lbl_year = tk.Label(self.mid_frame, text="Year:", anchor='w', background="white")
         lbl_year.grid(row=0, column=column, sticky='news')
 
         # setup combobox
@@ -225,7 +225,7 @@ class Grind(GUI):
 
     def setup_ui_spin(self, var_spin, text="notset", default=0, row=0, column=0):
         var_spin.set(default)
-        lbl_spin = tk.Label(self.mid_frame, text=text, anchor='w')
+        lbl_spin = tk.Label(self.mid_frame, text=text, anchor='w', background="white")
         lbl_spin.grid(row=row, column=column, sticky='wnse')
 
         spin_box = tk.Spinbox(self.mid_frame, from_=0, to=4000, textvariable=var_spin, width=5)
@@ -234,7 +234,7 @@ class Grind(GUI):
         return spin_box
 
     def setup_ui_search(self, column=0):
-        lbl_search = tk.Label(self.mid_frame, text="Search:", anchor='w')
+        lbl_search = tk.Label(self.mid_frame, text="Search:", anchor='w', background="white")
         lbl_search.grid(row=0, column=column, columnspan=2, sticky='wnse')
 
         search = tk.Entry(self.mid_frame, textvariable=self.var_search, width=60)
@@ -358,7 +358,9 @@ class Grind(GUI):
         _sex = self.var_gender.get()
 
         try:
-            info = [(uuid, data['name'], data['sex'], data['age'], len(data['grinds']))
+            info = [(uuid, data['name'], data['sex'], data['age'],
+                     len([date for date in data['grinds'] if _year == 'All Time' or date['date'].startswith(_year)]))
+
                     for uuid, data in self.grinders.items()
                     if data['grinds'] is not None and _min <= len(data['grinds']) <= _max and
                     (_sex == 'All' or str(data['age']) in _sex) and  # age and sex are reversed :(
@@ -586,7 +588,7 @@ class Grind(GUI):
         # find out if current plot line is setup for dates:
         if self.var_gender.get() in ["Males", "Females", "Nones", "All"]:
             current_ticks = self.ax.get_xticks().tolist()
-            if 0.0 in current_ticks:
+            if current_ticks[-1] < 1000:
                 self._clear_plots()
 
         dates = [date2num(datetime.datetime.strptime(grind[0], "%Y-%m-%d")) for grind in data]
