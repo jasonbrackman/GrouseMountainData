@@ -114,7 +114,7 @@ class Grind(GUI):
         self.setup_ui_search(column=5)
 
         # listbox UI and contents
-        self.info_columns = ["UUID", "Name", "Age", "Sex", "Grinds"]
+        self.info_columns = ["UUID", "Name", "Age", "Sex", "Grinds", "Best"]
         info = self._get_grinders_based_on_criteria()
         self.tree_info = self.create_treeview(self.bottom_frame, self.info_columns, info,
                                               column=0, row=0, weight=0, _scrollbar=True)
@@ -347,8 +347,24 @@ class Grind(GUI):
         self.ax.set_xticklabels(new_ticks)
         self.dataplot.show()
         self.log("[info]  Males: {} // Females: {} // Nones: {}".format(len(males),
-                                                                           len(females),
-                                                                           len(unknowns)))
+                                                                        len(females),
+                                                                        len(unknowns)))
+
+    def _get_best_grind_time(self, uuid):
+        _year = self.var_year.get()
+        grinds = self.grinders[uuid]['grinds']
+
+        best_time = 999999
+
+        for grind in grinds:
+            if 'time' in grind:
+                if "All Time" in _year or grind['date'].startswith(_year):
+                    hours, min, sec = grind['time'].split(":")
+                    seconds = int(hours)*3600 + int(min)*60 + int(sec)
+                    if seconds < best_time:
+                        best_time = seconds
+
+        return best_time
 
     def _get_grinders_based_on_criteria(self):
         _min = 0 if self.sbx_grinds_min.get() == '' else int(self.sbx_grinds_min.get())
@@ -359,7 +375,8 @@ class Grind(GUI):
 
         try:
             info = [(uuid, data['name'], data['sex'], data['age'],
-                     len([date for date in data['grinds'] if _year == 'All Time' or date['date'].startswith(_year)]))
+                     len([date for date in data['grinds'] if _year == 'All Time' or date['date'].startswith(_year)]),
+                     self._get_best_grind_time(uuid))
 
                     for uuid, data in self.grinders.items()
                     if data['grinds'] is not None and _min <= len(data['grinds']) <= _max and
@@ -371,16 +388,6 @@ class Grind(GUI):
             info = []
 
         self.log("Number of accounts found: {}".format(len(info)))
-
-        for uuid, data in self.grinders.items():
-            max = 0
-            for stats in data['grinds']:
-                if 'time' in stats:
-                    hours, min, sec = stats['time'].split(":")
-                    tis = int(hours)*3600 + int(min)*60 + int(sec)
-                    if tis > max:
-                        max = tis
-           # print(max)
 
         # sort by name (case insensitive)
         info = sorted(info, key=lambda info: info[1].lower())
@@ -525,7 +532,7 @@ class Grind(GUI):
             _width = 140
             if col == "Name":
                 _width = 125
-            elif col in ("Grinds", "Age", "Sex"):
+            elif col in ("Grinds", "Age", "Sex", "Best"):
                 _width = 60
             elif col == 'Date' or col == 'Start' or col == 'End' or col == 'Time':
                 _width = None
