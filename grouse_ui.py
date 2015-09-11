@@ -354,24 +354,39 @@ class Grind(GUI):
         _year = self.var_year.get()
         grinds = self.grinders[uuid]['grinds']
 
-        best_time = 999999
+        best_time = None
 
         for grind in grinds:
             if 'time' in grind:
                 if "All Time" in _year or grind['date'].startswith(_year):
                     hours, min, sec = grind['time'].split(":")
                     seconds = int(hours)*3600 + int(min)*60 + int(sec)
-                    if seconds < best_time:
+                    if best_time is None or seconds < best_time:
                         best_time = seconds
+        if best_time is not None:
+            m, s = divmod(best_time, 60)
+            h, m = divmod(m, 60)
+            best_time = "{:d}:{:02d}:{:02d}".format(h, m, s)
 
         return best_time
 
-    def _get_grinders_based_on_criteria(self):
+    def _get_grinders_based_on_criteria(self, show_test_accounts=False):
         _min = 0 if self.sbx_grinds_min.get() == '' else int(self.sbx_grinds_min.get())
         _max = 0 if self.sbx_grinds_max.get() == '' else int(self.sbx_grinds_max.get())
         _search = self.var_search.get()
         _year = self.var_year.get()
         _sex = self.var_gender.get()
+
+        test_accounts = [] if show_test_accounts else ["test",
+                                                       "!",
+                                                       "event",
+                                                       ',',
+                                                       'hiker',
+                                                       'team',
+                                                       '1',
+                                                       '2',
+                                                       '3',
+                                                       '8']
 
         try:
             info = [(uuid, data['name'], data['sex'], data['age'],
@@ -379,10 +394,12 @@ class Grind(GUI):
                      self._get_best_grind_time(uuid))
 
                     for uuid, data in self.grinders.items()
-                    if data['grinds'] is not None and _min <= len(data['grinds']) <= _max and
+                    if not any(name for name in test_accounts if name.lower() in data['name'].lower()) and
+                    data['grinds'] is not None and _min <= len(data['grinds']) <= _max and
                     (_sex == 'All' or str(data['age']) in _sex) and  # age and sex are reversed :(
                     (_year == "All Time" or any(date['date'].startswith(_year) for date in data['grinds'])) and
                     _search.lower() in data['name'].lower()]
+
         except TypeError as e:
             print(e)
             info = []
