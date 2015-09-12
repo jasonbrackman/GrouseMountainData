@@ -1,21 +1,18 @@
 import os
 import matplotlib
-
-# note that the 'TKAgg' is telling matplotlib to work with Tkinter
-matplotlib.use('TkAgg')
-
-import numpy as np
 import matplotlib.pyplot as plt
-
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg  # , NavigationToolbar2TkAgg
 from matplotlib.dates import date2num, num2date
-
+import numpy as np
 import random
 import time
 import datetime
 import account
 import tkinter as tk
 import tkinter.ttk as ttk
+
+# note that the 'TKAgg' is telling matplotlib to work with Tkinter
+matplotlib.use('TkAgg')
 
 
 class GUI:
