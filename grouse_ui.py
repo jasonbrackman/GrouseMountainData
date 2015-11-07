@@ -548,9 +548,9 @@ class Grind(GUI):
 
             _width = 140
             if col == "Name":
-                _width = 125
+                _width = 130
             elif col in ("Grinds", "Age", "Sex", "Best"):
-                _width = 60
+                _width = 70
             elif col == 'Date' or col == 'Start' or col == 'End' or col == 'Time':
                 _width = None
 

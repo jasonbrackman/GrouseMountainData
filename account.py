@@ -43,66 +43,8 @@ def collect_grind_times(grind_times, uuid, _page=1):
     titles = ('date', 'start', 'end', 'time')
     pattern = re.compile('.*page=(\d.*)&tab.*')
 
-    """
-    # the first URL was working up until the end of June/2015 -- then the site broke.??
-    # the second URL must be retrieving the data internally, but the history is incomplete, only showing 100 climbs.
-    url_01 = "http://www.grousemountain.com/grind_stats/{0}.json?page={1}".format(uuid, _page)
-
-    try:
-        with urllib.request.urlopen(url_01) as request:
-            data = request.read().decode(request.info().get_param('charset') or 'utf-8')
-
-            jdata = json.loads(data)
-            # print(jdata['html'])
-            soup = BeautifulSoup(jdata['html'])
-
-            # <span class='last'>
-            # <a href="/grind_stats/22597005000.json?page=2" data-remote="true">Last &raquo;</a>
-            # </span>
-
-            rows = soup.find_all('tr')
-            for row in rows:
-                data = row.find_all(text=re.compile('\d.*'))
-                data = [d.strip() for d in data]
-                if len(data) == 4:
-                    times = dict(zip(titles, data))
-                    if len(times) > 0 and times not in grind_times:
-                        grind_times.append(times)
-
-            pages = _page
-            element = soup.find('a', text=re.compile('Last'))
-            if element is not None:
-                results = re.match(pattern, element['href'])
-                if results is not None:
-                    # print("Result: Pages={}".format(results.groups()[0]))
-                    pages = int(results.groups()[0])
-
-            if _page < pages:
-                collect_grind_times(grind_times, uuid, _page=_page + 1)
-
-    except urllib.error.URLError as e:
-        print("[ERROR] {}".format(e.reason))
-
-
-    # This still works, but does not dig as deep.
-    url_02 = "http://www.grousemountain.com/grind_stats/{0}".format(uuid)
-    try:
-        with urllib.request.urlopen(url_02) as request:
-            soup = BeautifulSoup(request.read(), "html.parser")
-
-            data = [table.findAll('tr') for table in soup.findAll('table', {'class': 'table grind_log thin'})]
-            for grinds in data:
-                for grind in grinds:
-                    times = [item.string.strip() for item in grind.findAll('td')]
-                    times = dict(zip(titles, times))
-                    if len(times) > 0 and times not in grind_times:
-                        grind_times.append(times)
-
-    except urllib.error.URLError as e:
-        print("[ERROR] {}".format(e.reason))
-    """
-
     url_03 = "http://www.grousemountain.com/grind_stats/{0}?page={1}&tab=log".format(uuid, _page)
+
     try:
         with urllib.request.urlopen(url_03) as request:
             soup = BeautifulSoup(request.read(), "html.parser")
@@ -236,15 +178,6 @@ def collect_account_numbers(min, max, step):
     thread_collect_accounts(accounts, numbers)
 
 
-def recheck_names(with_name):
-    accounts = load_json_data()
-    numbers = [int(uuid) for uuid, data in accounts.items() if data['name'] == with_name]
-    # print(numbers)
-    print("[info] '{}' numbers found: {}".format(with_name, len(numbers)))
-    print("Numbers: {}".format(numbers))
-    thread_collect_accounts(accounts, numbers, pool=1)
-
-
 def split_accounts():
     # Split accounts between those that are "Not Found" and those that are valid.
     accounts = load_json_data()
@@ -269,45 +202,6 @@ def split_accounts():
     print("Length of bad accounts: {}".format(len(bad_accounts)))
 
 
-def correct_bad_grinds():
-    # Correct early account numbers that contained UUID numbers instead of grinds
-    counter = 0
-    accounts = load_json_data()
-    numbers = []
-    for uuid, data in accounts.items():
-        if data['grinds'] is None:
-            numbers.append(uuid)
-        if data['grinds'] is not None and len(data['grinds']) > 0:
-            if type(data['grinds'][0]) == int:
-                # print(uuid, data['grinds'])
-                numbers.append(uuid)
-        if data['sex'] is None:
-            # print(data['name'])
-            # numbers.append(uuid)
-            pass
-        if data['sex'] == 'Male':
-            numbers.append(uuid)
-    thread_collect_accounts(accounts, numbers)
-
-    print(counter)
-
-
-def grinds_over_100():
-    accounts = load_json_data()
-    centurions = os.path.expanduser("~/Documents/grousemountaindata_special.json")
-    special = load_json_data(_storage_path=centurions)
-    dirty = False
-    for uuid, data in accounts.items():
-        if data['grinds'] is not None and len(data['grinds']) > 100:
-            print(data['name'])
-            print(len(data['grinds']))
-            dirty = True
-            special[uuid] = data
-
-    if dirty:
-        dump_json_data(special, _storage_path=centurions)
-
-
 def merge_to_main_accounts(_path_to_merge):
     data_merge = load_json_data(_storage_path=_path_to_merge)
     accounts = load_json_data()
@@ -327,14 +221,14 @@ def merge_to_main_accounts(_path_to_merge):
         dump_json_data(accounts)
 
 
-def update_accounts(min=0, start=0, stop=445000000000000):
+def update_accounts(min=0, start=44500000000, stop=445000000000000):
     current_date = datetime.datetime.now().strftime("%Y-%m-%d")
     accounts = load_json_data()
     dirty = False
     for uuid, data in accounts.items():
         if len(accounts[uuid]['grinds']) > min and start < int(uuid) < stop:
 
-            if 'last_update' not in accounts[uuid]:
+            if 'last_update' in accounts[uuid]:
                 # print(uuid, "Needs Updating...")
 
                 uuid, name, sex, age, grinds = collect_grind_data(uuid)
@@ -349,23 +243,58 @@ def update_accounts(min=0, start=0, stop=445000000000000):
                         dirty = True
 
                 accounts[uuid]['last_update'] = current_date
+    if dirty:
+        dump_json_data(accounts)
 
-    dump_json_data(accounts)
+
+def update_account(uuid, data):
+    current_date = datetime.datetime.now().strftime("%Y-%m-%d")
+
+    uuid, name, sex, age, grinds = collect_grind_data(uuid)
+
+    if data['grinds'] is None:
+        data['grinds'] = list()
+
+    for grind in grinds:
+        if grind not in data['grinds']:
+            data['grinds'].append(grind)
+
+    data['last_update'] = current_date
+
+    return uuid, data
+
+
+def thread_update_accounts(_min, _max, pool=10):
+    accounts = load_json_data()
+    dirty = False
+    with concurrent.futures.ProcessPoolExecutor(pool) as executor:
+        futures = [executor.submit(update_account, uuid, data) for uuid, data in accounts.items() if _min < int(uuid) < _max]
+        concurrent.futures.wait(futures)
+
+        results = [future.result() for future in concurrent.futures.as_completed(futures)]
+        for result in results:
+            if result is not None:
+                uuid, data = result
+                accounts[uuid] = data
+                dirty = True
+
+    if dirty:
+        dump_json_data(accounts)
 
 if __name__ == "__main__":
-    update_accounts()
+    thread_update_accounts(4000000000, 6000000001)
     # uuid = <VALID UUID>
     # print(collect_grind_data(uuid))
 
     # x = collect_grind_times([], 22597005000, page=1)
     # print(len(x))
     # 18014003000
-    # correct_bad_grinds()
+
     # collect_account_numbers(240000000000, 451000000000, 1000000)
     # recheck_names("Service Unavailable")
     # split_accounts()
     # grinds_over_100()
     # data_merge = os.path.expanduser("~/Documents/grousemountaindata_special.json")
     # merge_to_main_accounts(data_merge)
-    # correct_bad_grinds()
+
     pass
