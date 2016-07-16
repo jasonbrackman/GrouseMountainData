@@ -54,7 +54,7 @@ def collect_grind_times(grind_times, uuid, _page=1):
                 for grind in grinds:
                     times = [item.string.strip() for item in grind.findAll('td')]
                     times = dict(zip(titles, times))
-                    if len(times) > 0 and times not in grind_times:
+                    if times and times not in grind_times:
                         grind_times.append(times)
 
             pages = _page
@@ -281,8 +281,19 @@ def thread_update_accounts(_min, _max, pool=10):
     if dirty:
         dump_json_data(accounts)
 
+    print("Completed...")
+
 if __name__ == "__main__":
-    thread_update_accounts(4000000000, 6000000001)
+    end_max = 65000000000
+    # end_max = 7000000000
+    vals = range(0, end_max, 1000000000)
+    for min, max in zip(vals, vals[1:]):
+        #print(min, max)
+        thread_update_accounts(min, max)
+
+    # TODO: Create a click interface to download the changes for the day and scrape only those items.
+
+    # thread_update_accounts(6000000000, 7000000001)
     # uuid = <VALID UUID>
     # print(collect_grind_data(uuid))
 

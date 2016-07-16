@@ -1,5 +1,9 @@
 import os
 import matplotlib
+
+# note that the 'TKAgg' is telling matplotlib to work with Tkinter
+matplotlib.use('TkAgg')
+
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg  # , NavigationToolbar2TkAgg
 from matplotlib.dates import date2num, num2date
@@ -11,8 +15,7 @@ import account
 import tkinter as tk
 import tkinter.ttk as ttk
 
-# note that the 'TKAgg' is telling matplotlib to work with Tkinter
-matplotlib.use('TkAgg')
+
 
 
 class GUI:
@@ -97,6 +100,7 @@ class Grind(GUI):
         # Vars to be accessed elsewhere in the instance.
         self.var_plot = tk.StringVar()
         self.var_year = tk.StringVar()
+        self.var_age = tk.StringVar()
         self.var_gender = tk.StringVar()
         self.var_min = tk.StringVar()
         self.var_max = tk.StringVar()
@@ -104,11 +108,12 @@ class Grind(GUI):
 
         # UI Presentation SETUP
         self.setup_ui_plot(self.var_plot, column=0)
-        self.setup_ui_gender(self.var_gender, column=1)
-        self.setup_ui_year(self.var_year, column=2)
-        self.sbx_grinds_min = self.setup_ui_spin(self.var_min, text="Min:", default=0, row=0, column=3)
-        self.sbx_grinds_max = self.setup_ui_spin(self.var_max, text="Max:", default=3000, row=0, column=4)
-        self.setup_ui_search(column=5)
+        self.setup_ui_age(self.var_age, column=1)
+        self.setup_ui_gender(self.var_gender, column=2)
+        self.setup_ui_year(self.var_year, column=3)
+        self.sbx_grinds_min = self.setup_ui_spin(self.var_min, text="Min:", default=0, row=0, column=4)
+        self.sbx_grinds_max = self.setup_ui_spin(self.var_max, text="Max:", default=3000, row=0, column=5)
+        self.setup_ui_search(column=6)
 
         # listbox UI and contents
         self.info_columns = ["UUID", "Name", "Age", "Sex", "Grinds", "Best"]
@@ -172,6 +177,26 @@ class Grind(GUI):
         option.config(width=10)
         option.grid(row=1, column=column, sticky='ns', pady=0, padx=0)
         var_plot.trace("w", lambda x, y, z: print(x, y, z))
+
+    def setup_ui_age(self, var_age, column=0):
+        """
+        Sets up a drop down list of options with a corresponding callback (trace) depending on what is chosen.
+        -- Gender Setup
+        :param var_age: a tkinter string variable
+        :param column: what column should the drop down box be placed into.
+        :return:
+        """
+        var_age.set('All')
+        lbl_age = tk.Label(self.mid_frame, text="Age:", anchor='w', background="white")
+        lbl_age.grid(row=0, column=column, sticky='wnse', padx=4)
+        choices = ['All', '12 & Under', '13-19', '20-29', '30-39', '40-49', '50-59', '60-69', '70+', 'Nones']
+        option = tk.OptionMenu(self.mid_frame, var_age, *choices)
+        option.config(width=7)
+        option.grid(row=1, column=column, sticky='ns', pady=0, padx=0)
+        var_age.trace("w", lambda x, y, z: self.populate_treeview(
+            self.tree_info,
+            self.info_columns,
+            self._get_grinders_based_on_criteria()))
 
     def setup_ui_gender(self, var_gender, column=0):
         """
@@ -373,6 +398,7 @@ class Grind(GUI):
         _search = self.var_search.get()
         _year = self.var_year.get()
         _sex = self.var_gender.get()
+        _age = self.var_age.get()
 
         test_accounts = [] if show_test_accounts else ["test",
                                                        "!",
@@ -393,6 +419,7 @@ class Grind(GUI):
                     for uuid, data in self.grinders.items()
                     if not any(name for name in test_accounts if name.lower() in data['name'].lower()) and
                     data['grinds'] is not None and _min <= len(data['grinds']) <= _max and
+                    (_age == 'All' or str(data['sex']) in _age) and
                     (_sex == 'All' or str(data['age']) in _sex) and  # age and sex are reversed :(
                     (_year == "All Time" or any(date['date'].startswith(_year) for date in data['grinds'])) and
                     _search.lower() in data['name'].lower()]
