@@ -40,6 +40,37 @@ class GUI:
         - a func to add an app icon.
     """
     def __init__(self, parent):
+        # self.create_framed_gui(parent)
+        self.create_windowpaned_gui(parent)
+        self.log("[info] Ready...")
+        # self.setup_app_icon()
+
+    def create_windowpaned_gui(self, parent):
+        self.main_container = tk.PanedWindow(parent, orient=tk.VERTICAL, relief='groove', borderwidth=4, showhandle=True)
+        self.main_container.pack(side="top", fill="both", expand=True, anchor='center')
+
+        # Top Frame
+        self.top_frame = tk.Frame(self.main_container, background="white")
+        self.top_frame.pack(side="top", fill="y", expand=True)
+
+        # mid Frame
+        self.mid_frame = tk.Frame(self.main_container, background="green")
+        self.mid_frame.pack(side="top", fill="x", expand=False)
+
+        # Bottom Frame
+        self.bottom_frame = tk.Frame(self.main_container, background="yellow")
+        self.bottom_frame.pack(side="bottom", fill="both", expand=True)
+
+        self.main_container.add(self.top_frame)
+        self.main_container.add(self.mid_frame)
+        self.main_container.add(self.bottom_frame)
+
+        # status bar
+        self.status_msg = tk.StringVar()
+        self.status_bar = tk.Label(parent, text=self.status_msg, bd=1, relief=tk.SUNKEN, anchor='w')
+        self.status_bar.pack(side="bottom", fill="both")
+
+    def create_framed_gui(self, parent):
         self.parent = parent
         # Build main container
         self.main_container = tk.Frame(parent, background="bisque")
@@ -61,9 +92,6 @@ class GUI:
         self.status_msg = tk.StringVar()
         self.status_bar = tk.Label(parent, text=self.status_msg, bd=1, relief=tk.SUNKEN, anchor='w')
         self.status_bar.pack(side="bottom", fill="x")
-
-        self.log("[info] Ready...")
-        self.setup_app_icon()
 
     def log(self, message):
         self.status_bar.configure(text=message)
@@ -107,18 +135,18 @@ class Grind(GUI):
         self.var_search = tk.StringVar()
 
         # UI Presentation SETUP
-        self.setup_ui_plot(self.var_plot, column=0)
-        self.setup_ui_age(self.var_age, column=1)
-        self.setup_ui_gender(self.var_gender, column=2)
-        self.setup_ui_year(self.var_year, column=3)
-        self.sbx_grinds_min = self.setup_ui_spin(self.var_min, text="Min:", default=0, row=0, column=4)
-        self.sbx_grinds_max = self.setup_ui_spin(self.var_max, text="Max:", default=3000, row=0, column=5)
-        self.setup_ui_search(column=6)
+        self.setup_ui_plot(self.top_frame, self.var_plot, column=0)
+        self.setup_ui_age(self.top_frame, self.var_age, column=1)
+        self.setup_ui_gender(self.top_frame, self.var_gender, column=2)
+        self.setup_ui_year(self.top_frame, self.var_year, column=3)
+        self.sbx_grinds_min = self.setup_ui_spin(self.top_frame, self.var_min, text="Min:", default=0, row=0, column=4)
+        self.sbx_grinds_max = self.setup_ui_spin(self.top_frame, self.var_max, text="Max:", default=3000, row=0, column=5)
+        self.setup_ui_search(self.top_frame, column=6)
 
         # listbox UI and contents
         self.info_columns = ["UUID", "Name", "Age", "Sex", "Grinds", "Best"]
         info = self._get_grinders_based_on_criteria()
-        self.tree_info = self.create_treeview(self.bottom_frame, self.info_columns, info,
+        self.tree_info = self.create_treeview(self.mid_frame, self.info_columns, info,
                                               column=0, row=0, weight=0, _scrollbar=True)
         self.tree_info.bind("<<TreeviewSelect>>", self.display_grinds_for_tree)
 
@@ -135,7 +163,7 @@ class Grind(GUI):
                                                                           self._get_grinders_based_on_criteria()))
 
         self.headers = ["Date", "Start", "End", "Time"]
-        self.tree_grind = self.create_treeview(self.bottom_frame, self.headers, [], column=2, row=0, weight=1)
+        self.tree_grind = self.create_treeview(self.mid_frame, self.headers, [], column=2, row=0, weight=1)
 
         # plot
         self.figure = plt.figure(facecolor='white', frameon=True)  # , tight_layout=True)
@@ -168,17 +196,17 @@ class Grind(GUI):
         self.log("[info] Total # of accounts: {}".format(len(self.grinders)))
 
     # Setup UI
-    def setup_ui_plot(self, var_plot, column=0):
+    def setup_ui_plot(self, frame, var_plot, column=0):
         var_plot.set('Bar Buckets')
-        lbl_plot = tk.Label(self.mid_frame, text="Plot Type:", anchor='w', background="white")
+        lbl_plot = tk.Label(frame, text="Plot Type:", anchor='w', background="white")
         lbl_plot.grid(row=0, column=column, sticky='wnse', padx=5)
         choices = ['Bar Buckets', 'Plot Attempts', 'Plot Dates']
-        option = tk.OptionMenu(self.mid_frame, var_plot, *choices)
-        option.config(width=10)
+        option = tk.OptionMenu(frame, var_plot, *choices)
+        option.config(width=15)
         option.grid(row=1, column=column, sticky='ns', pady=0, padx=0)
         var_plot.trace("w", lambda x, y, z: print(x, y, z))
 
-    def setup_ui_age(self, var_age, column=0):
+    def setup_ui_age(self, frame, var_age, column=0):
         """
         Sets up a drop down list of options with a corresponding callback (trace) depending on what is chosen.
         -- Gender Setup
@@ -187,10 +215,10 @@ class Grind(GUI):
         :return:
         """
         var_age.set('All')
-        lbl_age = tk.Label(self.mid_frame, text="Age:", anchor='w', background="white")
+        lbl_age = tk.Label(frame, text="Age:", anchor='w', background="white")
         lbl_age.grid(row=0, column=column, sticky='wnse', padx=4)
         choices = ['All', '12 & Under', '13-19', '20-29', '30-39', '40-49', '50-59', '60-69', '70+', 'Nones']
-        option = tk.OptionMenu(self.mid_frame, var_age, *choices)
+        option = tk.OptionMenu(frame, var_age, *choices)
         option.config(width=7)
         option.grid(row=1, column=column, sticky='ns', pady=0, padx=0)
         var_age.trace("w", lambda x, y, z: self.populate_treeview(
@@ -198,7 +226,7 @@ class Grind(GUI):
             self.info_columns,
             self._get_grinders_based_on_criteria()))
 
-    def setup_ui_gender(self, var_gender, column=0):
+    def setup_ui_gender(self, frame, var_gender, column=0):
         """
         Sets up a drop down list of options with a corresponding callback (trace) depending on what is chosen.
         -- Gender Setup
@@ -207,10 +235,10 @@ class Grind(GUI):
         :return:
         """
         var_gender.set('All')
-        lbl_gender = tk.Label(self.mid_frame, text="Gender:", anchor='w', background="white")
+        lbl_gender = tk.Label(frame, text="Gender:", anchor='w', background="white")
         lbl_gender.grid(row=0, column=column, sticky='wnse', padx=4)
         choices = ['All', 'Males', 'Females', 'Nones']
-        option = tk.OptionMenu(self.mid_frame, var_gender, *choices)
+        option = tk.OptionMenu(frame, var_gender, *choices)
         option.config(width=7)
         option.grid(row=1, column=column, sticky='ns', pady=0, padx=0)
         var_gender.trace("w", lambda x, y, z: self._plot_grinds_completed_by_gender(
@@ -218,9 +246,9 @@ class Grind(GUI):
             show_females=(var_gender.get() == "Females" or var_gender.get() == 'All'),
             show_unknowns=(var_gender.get() == "Nones" or var_gender.get() == 'All')))
 
-    def setup_ui_year(self, var_year, column=0):
+    def setup_ui_year(self, frame, var_year, column=0):
         var_year.set("All Time")
-        lbl_year = tk.Label(self.mid_frame, text="Year:", anchor='w', background="white")
+        lbl_year = tk.Label(frame, text="Year:", anchor='w', background="white")
         lbl_year.grid(row=0, column=column, sticky='news')
 
         # setup combobox
@@ -237,30 +265,30 @@ class Grind(GUI):
         years.sort()
         years.insert(0, 'All Time')
 
-        ddl_years = tk.OptionMenu(self.mid_frame, var_year, *years)
-        ddl_years.config(width=7)
+        ddl_years = tk.OptionMenu(frame, var_year, *years)
+        ddl_years.config(width=10)
         ddl_years.grid(row=1, column=column, sticky='ns', pady=0, padx=0)
         var_year.trace("w", lambda x, y, z: self.populate_treeview(
             self.tree_info,
             self.info_columns,
             self._get_grinders_based_on_criteria()))
 
-    def setup_ui_spin(self, var_spin, text="notset", default=0, row=0, column=0):
+    def setup_ui_spin(self, frame, var_spin, text="notset", default=0, row=0, column=0):
         var_spin.set(default)
-        lbl_spin = tk.Label(self.mid_frame, text=text, anchor='w', background="white")
+        lbl_spin = tk.Label(frame, text=text, anchor='w', background="white")
         lbl_spin.grid(row=row, column=column, sticky='wnse')
 
-        spin_box = tk.Spinbox(self.mid_frame, from_=0, to=4000, textvariable=var_spin, width=5)
+        spin_box = tk.Spinbox(frame, from_=0, to=4000, textvariable=var_spin, width=5)
         spin_box.grid(row=(row+1), column=column, sticky='ns', pady=0, padx=0)
 
         return spin_box
 
-    def setup_ui_search(self, column=0):
-        lbl_search = tk.Label(self.mid_frame, text="Search:", anchor='w', background="white")
+    def setup_ui_search(self, frame, column=0):
+        lbl_search = tk.Label(frame, text="Search:", anchor='w', background="white")
         lbl_search.grid(row=0, column=column, columnspan=2, sticky='wnse')
 
-        search = tk.Entry(self.mid_frame, textvariable=self.var_search, width=60)
-        search.grid(row=1, column=5, sticky='ns', pady=0, padx=0)
+        search = tk.Entry(frame, textvariable=self.var_search, width=60)
+        search.grid(row=1, column=column, sticky='ns', pady=0, padx=0)
 
     # Bar Charts
     def autolabel(self, rects):
@@ -515,15 +543,15 @@ class Grind(GUI):
         for item in self.tree_info.selection():
             value = str(self.tree_info.item(item)['values'][0])
 
-            uuid, name, sex, age, grinds = account.collect_grind_data(value)
-            self.grinders[value]['sex'] = sex
-            self.grinders[value]['age'] = age
-            if self.grinders[value]['grinds'] is None:
-                self.grinders[value]['grinds'] = list()
+        uuid, name, sex, age, grinds = account.collect_grind_data(value)
+        self.grinders[value]['sex'] = sex
+        self.grinders[value]['age'] = age
+        if self.grinders[value]['grinds'] is None:
+            self.grinders[value]['grinds'] = list()
 
-            for grind in grinds:
-                if grind not in self.grinders[value]['grinds']:
-                    self.grinders[value]['grinds'].append(grind)
+        for grind in grinds:
+            if grind not in self.grinders[value]['grinds']:
+                self.grinders[value]['grinds'].append(grind)
 
     def _clear_plots(self):
         self.ax.clear()
@@ -696,6 +724,13 @@ def grouse_grind_app():
     Grind(root)
     root.mainloop()
 
+def test_app():
+    root = tk.Tk()
+    root.title("Grouse Grind App 0.5")
+    # root.geometry("1040x720")
+    GUI(root)
+    root.mainloop()
 
 if __name__ == "__main__":
     grouse_grind_app()
+    # test_app()
