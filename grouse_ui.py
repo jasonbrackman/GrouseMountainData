@@ -511,18 +511,19 @@ class Grind(GUI):
         account.dump_json_data(self.grinders)
 
     def _update_account(self):
-        item_id = self.tree_info.focus()
-        value = str(self.tree_info.item(item_id)['values'][0])
+        # item_id = self.tree_info.focus()
+        for item in self.tree_info.selection():
+            value = str(self.tree_info.item(item)['values'][0])
 
-        uuid, name, sex, age, grinds = account.collect_grind_data(value)
-        self.grinders[value]['sex'] = sex
-        self.grinders[value]['age'] = age
-        if self.grinders[value]['grinds'] is None:
-            self.grinders[value]['grinds'] = list()
+            uuid, name, sex, age, grinds = account.collect_grind_data(value)
+            self.grinders[value]['sex'] = sex
+            self.grinders[value]['age'] = age
+            if self.grinders[value]['grinds'] is None:
+                self.grinders[value]['grinds'] = list()
 
-        for grind in grinds:
-            if grind not in self.grinders[value]['grinds']:
-                self.grinders[value]['grinds'].append(grind)
+            for grind in grinds:
+                if grind not in self.grinders[value]['grinds']:
+                    self.grinders[value]['grinds'].append(grind)
 
     def _clear_plots(self):
         self.ax.clear()
