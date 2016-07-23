@@ -113,6 +113,12 @@ def collect_grind_data(number):
 
             return str(number), name, age, sex, grinds
 
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            pass
+        else:
+            print(e.code, e.reason)
+
     except urllib.error.URLError as e:
         # print("{}: {}".format(number, e.reason))
         return number, e.reason, None, None, []
@@ -129,6 +135,7 @@ def thread_collect_accounts(accounts, numbers, pool=6):
 
         results = [future.result() for future in concurrent.futures.as_completed(futures)]
         for result in results:
+            print(result)
             if result is not None:
                 accounts = add_account(accounts,
                                        uuid=result[0],
@@ -143,6 +150,18 @@ def thread_collect_accounts(accounts, numbers, pool=6):
 
 
 def collect_account_numbers(min, max, step):
+    """
+    - Loads the current verified account numbers and a list of failed accounts so that the process doesn't have to be
+    completed in one single run.
+
+    - Put both lists together -- and then attempt to find numbers not yet in either list and test if the result returns
+    a valid account.
+        -- If if it does -- add it to the verified account numbers with relevant data.
+    :param min: Minimum account number to start
+    :param max: Maximum account number to end
+    :param step: Instead of counting by 1 -- you can specify the step count.
+    :return:
+    """
     accounts = load_json_data()
     file = os.path.expanduser("~/Documents/grousemountain_baddata.json")
     accounts_not_found = load_json_data(_storage_path=file)
@@ -157,6 +176,11 @@ def collect_account_numbers(min, max, step):
                     numbers.append(number)
         print("[info] New numbers found: {}".format(len(numbers)))
         return numbers
+
+    def chunks(items, chunk_size):
+        """Yield successive n-sized chunks from l."""
+        for i in range(0, len(items), chunk_size):
+            yield items[i:i + chunk_size]
 
     all_accounts = accounts.copy()
     all_accounts.update(accounts_not_found)
@@ -175,7 +199,11 @@ def collect_account_numbers(min, max, step):
         options = [0]
         numbers = get_unknown_uuids(min, max, step, all_accounts, options)
 
-    thread_collect_accounts(accounts, numbers)
+    chunk_size = 50
+    chunks = chunks(numbers, chunk_size)
+    for index, chunk in enumerate(chunks, 1):
+        thread_collect_accounts(accounts, chunk)
+        print('[info] Finished testing/collecting block {}/{}.'.format(index, len(numbers)/chunk_size))
 
 
 def split_accounts():
@@ -284,12 +312,15 @@ def thread_update_accounts(_min, _max, pool=10):
     print("Completed...")
 
 if __name__ == "__main__":
-    end_max = 65000000000
-    # end_max = 7000000000
-    vals = range(0, end_max, 1000000000)
-    for min, max in zip(vals, vals[1:]):
-        #print(min, max)
-        thread_update_accounts(min, max)
+    # Update Accounts
+    update_accounts = False
+    if update_accounts:
+        end_max = 65000000000
+        # end_max = 7000000000
+        vals = range(0, end_max, 1000000000)
+        for min, max in zip(vals, vals[1:]):
+            #print(min, max)
+            thread_update_accounts(min, max)
 
     # TODO: Create a click interface to download the changes for the day and scrape only those items.
 
@@ -301,11 +332,17 @@ if __name__ == "__main__":
     # print(len(x))
     # 18014003000
 
-    # collect_account_numbers(240000000000, 451000000000, 1000000)
-    # recheck_names("Service Unavailable")
-    # split_accounts()
-    # grinds_over_100()
+    #collect_account_numbers(451000000000, 451001111030, 1000000)
+    #split_accounts()
     # data_merge = os.path.expanduser("~/Documents/grousemountaindata_special.json")
     # merge_to_main_accounts(data_merge)
 
-    pass
+    number = 451000000000
+    root_url = "http://www.grousemountain.com/grind_stats/{}/".format(number)
+    with urllib.request.urlopen(root_url) as page:
+        soup = BeautifulSoup(page.read(), "html.parser")
+
+        # full name associated with the UUID
+        username = [div.find('h2') for div in soup.findAll('div', {'class': 'title red'})]
+        name = username[0].string.strip()
+        print(name)
