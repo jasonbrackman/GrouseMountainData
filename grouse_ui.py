@@ -97,7 +97,6 @@ class GUI:
         self.status_bar.configure(text=message)
 
     def setup_app_icon(self):
-        # setup the app icon
         head, tail = os.path.split(os.path.realpath(__file__))
         icon_path = os.path.join(head, 'assets', 'mountain.ico')
         self.parent.wm_iconbitmap(bitmap=icon_path)
@@ -140,7 +139,7 @@ class Grind(GUI):
         self.setup_ui_gender(self.top_frame, self.var_gender, column=2)
         self.setup_ui_year(self.top_frame, self.var_year, column=3)
         self.sbx_grinds_min = self.setup_ui_spin(self.top_frame, self.var_min, text="Min:", default=0, row=0, column=4)
-        self.sbx_grinds_max = self.setup_ui_spin(self.top_frame, self.var_max, text="Max:", default=3000, row=0, column=5)
+        self.sbx_grinds_max = self.setup_ui_spin(self.top_frame, self.var_max, text="Max:", default=5000, row=0, column=5)
         self.setup_ui_search(self.top_frame, column=6)
 
         # listbox UI and contents
@@ -518,7 +517,7 @@ class Grind(GUI):
     def add_file_menu(self, parent):
         menubar = tk.Menu(parent, tearoff=1)
         filemenu = tk.Menu(menubar)
-        filemenu.add_command(label="Update Account", command=self._update_account)
+        filemenu.add_command(label="Update Account(s)", command=self._update_account)
         filemenu.add_command(label="Save Changes", command=self._save_changes)
         filemenu.add_command(label="Clear Plots", command=self._clear_plots)
         filemenu.add_command(label="Plot Everything", command=self._plot_everything)
@@ -540,18 +539,19 @@ class Grind(GUI):
 
     def _update_account(self):
         # item_id = self.tree_info.focus()
+
         for item in self.tree_info.selection():
             value = str(self.tree_info.item(item)['values'][0])
+            print('[FETCHING] Collecting account #{} data...'.format(value))
+            uuid, name, sex, age, grinds = account.collect_grind_data(value)
+            self.grinders[value]['sex'] = sex
+            self.grinders[value]['age'] = age
+            if self.grinders[value]['grinds'] is None:
+                self.grinders[value]['grinds'] = list()
 
-        uuid, name, sex, age, grinds = account.collect_grind_data(value)
-        self.grinders[value]['sex'] = sex
-        self.grinders[value]['age'] = age
-        if self.grinders[value]['grinds'] is None:
-            self.grinders[value]['grinds'] = list()
-
-        for grind in grinds:
-            if grind not in self.grinders[value]['grinds']:
-                self.grinders[value]['grinds'].append(grind)
+            for grind in grinds:
+                if grind not in self.grinders[value]['grinds']:
+                    self.grinders[value]['grinds'].append(grind)
 
     def _clear_plots(self):
         self.ax.clear()
@@ -730,6 +730,7 @@ def test_app():
     # root.geometry("1040x720")
     GUI(root)
     root.mainloop()
+
 
 if __name__ == "__main__":
     grouse_grind_app()
