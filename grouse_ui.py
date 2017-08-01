@@ -543,9 +543,9 @@ class Grind(GUI):
         for item in self.tree_info.selection():
             value = str(self.tree_info.item(item)['values'][0])
             print('[FETCHING] Collecting account #{} data...'.format(value))
-            uuid, name, sex, age, grinds = account.collect_grind_data(value)
-            self.grinders[value]['sex'] = sex
+            uuid, name, age, sex, grinds = account.collect_grind_data(value)
             self.grinders[value]['age'] = age
+            self.grinders[value]['sex'] = sex
             if self.grinders[value]['grinds'] is None:
                 self.grinders[value]['grinds'] = list()
 

@@ -2,6 +2,7 @@ import os
 import re
 import json
 import datetime
+import ssl
 import urllib.request
 import urllib.error
 import concurrent.futures
@@ -44,9 +45,9 @@ def collect_grind_times(grind_times, uuid, _page=1):
     pattern = re.compile('.*page=(\d.*)&tab.*')
 
     url_03 = "http://www.grousemountain.com/grind_stats/{0}?page={1}&tab=log".format(uuid, _page)
-
+    gcontext = ssl.SSLContext(ssl.PROTOCOL_SSLv23)  # Only for gangstars
     try:
-        with urllib.request.urlopen(url_03) as request:
+        with urllib.request.urlopen(url_03, context=gcontext) as request:
             soup = BeautifulSoup(request.read(), "html.parser")
 
             data = [table.findAll('tr') for table in soup.findAll('table', {'class': 'table grind_log thin'})]
@@ -75,20 +76,20 @@ def collect_grind_times(grind_times, uuid, _page=1):
 
 
 def collect_grind_data(number):
-    root_url = "http://www.grousemountain.com/grind_stats/{}/".format(number)
-
+    root_url = "http://www.grousemountain.com/grind_stats/{}/?mobile=0".format(number)
+    gcontext = ssl.SSLContext(ssl.PROTOCOL_SSLv23)  # Only for gangstars
     try:
-        with urllib.request.urlopen(root_url) as page:
+        with urllib.request.urlopen(root_url, context=gcontext) as page:
             soup = BeautifulSoup(page.read(), "html.parser")
 
             # full name associated with the UUID
-            username = [div.find('h2') for div in soup.findAll('div', {'class': 'title red'})]
-            name = username[0].string.strip()
+            username = (div.find('h3').text for div in soup.findAll('div', {'class': 'grind-stats__welcome'}))
+            name = next(username).strip()
 
             # is the user male or female?
             sex = None
             for sex_type in soup.findAll('small'):
-                test = sex_type.string.strip()
+                test = sex_type.text.strip()
                 if "Men" in test:
                     sex = "Male"
                     break
@@ -115,34 +116,41 @@ def collect_grind_data(number):
 
     except urllib.error.HTTPError as e:
         if e.code == 404:
-            pass
+            print('[{}] {}: {}'.format(number, e.code, e.reason))
         else:
-            print(e.code, e.reason)
+            print('[{}] {}: {}'.format(number, e.code, e.reason))
+
+        return number, "Not Found", None, None, []
 
     except urllib.error.URLError as e:
-        # print("{}: {}".format(number, e.reason))
-        return number, e.reason, None, None, []
+        print("{}: {}".format(number, e.reason))
+        return number, "Not Found", None, None, []
 
-    except ConnectionResetError as e:
-        print(e)
+    # except Exception as e:
+    #     print("{}: {}".format(number, e))
+    #     return number, "Not Found", None, None, []
 
 
-def thread_collect_accounts(accounts, numbers, pool=6):
+def thread_collect_accounts(accounts, numbers, pool=42):
+
     dirty = False
     with concurrent.futures.ProcessPoolExecutor(pool) as executor:
-        futures = [executor.submit(collect_grind_data, number) for number in numbers]
+        futures = [executor.submit(collect_grind_data, number) for number in numbers
+                   if str(number) not in accounts.keys()]
         concurrent.futures.wait(futures)
 
         results = [future.result() for future in concurrent.futures.as_completed(futures)]
         for result in results:
-            print(result)
-            if result is not None:
+            if not result[1] == "Not Found":
+
                 accounts = add_account(accounts,
                                        uuid=result[0],
                                        name=result[1],
                                        age=result[2],
                                        sex=result[3],
                                        grinds=result[4])
+
+                print("new: {}".format(result[0]))
                 dirty = True
 
     if dirty:
@@ -259,7 +267,7 @@ def update_accounts(min=0, start=44500000000, stop=445000000000000):
             if 'last_update' in accounts[uuid]:
                 # print(uuid, "Needs Updating...")
 
-                uuid, name, sex, age, grinds = collect_grind_data(uuid)
+                uuid, name, age, sex, grinds = collect_grind_data(uuid)
 
                 if accounts[uuid]['grinds'] is None:
                     accounts[uuid]['grinds'] = list()
@@ -278,28 +286,33 @@ def update_accounts(min=0, start=44500000000, stop=445000000000000):
 def update_account(uuid, data):
     current_date = datetime.datetime.now().strftime("%Y-%m-%d")
 
-    uuid, name, sex, age, grinds = collect_grind_data(uuid)
-
     if data['grinds'] is None:
         data['grinds'] = list()
 
-    for grind in grinds:
-        if grind not in data['grinds']:
-            data['grinds'].append(grind)
+    if data['last_update'] == current_date:
+        print("Already updated today: {}".format(data['last_update']))
+    else:
+        uuid, name, age, sex, grinds = collect_grind_data(uuid)
+        for grind in grinds:
+            if grind not in data['grinds']:
+                data['grinds'].append(grind)
 
-    data['last_update'] = current_date
+        data['last_update'] = current_date
 
     return uuid, data
 
 
-def thread_update_accounts(_min, _max, pool=10):
+def thread_update_accounts(_min, _max):
     accounts = load_json_data()
+
     dirty = False
-    with concurrent.futures.ProcessPoolExecutor(pool) as executor:
+
+    with concurrent.futures.ProcessPoolExecutor() as executor:
         futures = [executor.submit(update_account, uuid, data) for uuid, data in accounts.items() if _min < int(uuid) < _max]
-        concurrent.futures.wait(futures)
+        concurrent.futures.wait(futures, timeout=10)
 
         results = [future.result() for future in concurrent.futures.as_completed(futures)]
+
         for result in results:
             if result is not None:
                 uuid, data = result
@@ -311,38 +324,50 @@ def thread_update_accounts(_min, _max, pool=10):
 
     print("Completed...")
 
+
+def experiment_001():
+    # # Update Accounts
+    # update_accounts = True
+    # if update_accounts:
+    #     end_max = 500000
+    #     # end_max = 7000000000
+    #     # step = 1000000000
+    #     vals = range(0, end_max, 10000)
+    #     for min, max in zip(vals, vals[1:]):
+    #         print(min, max)
+    #         thread_update_accounts(min, max)
+    pass
+
+
+def experiment_002():
+    # NOT SURE WHAT I WAS TESTING HERE....
+    # number = 451000000000
+    # root_url = "http://www.grousemountain.com/grind_stats/{}/".format(number)
+    # with urllib.request.urlopen(root_url) as page:
+    #     soup = BeautifulSoup(page.read(), "html.parser")
+    #
+    #     # full name associated with the UUID
+    #     username = [div.find('h2') for div in soup.findAll('div', {'class': 'title red'})]
+    #     name = username[0].string.strip()
+    #     print(name)
+    pass
+
+
+def find_new_accounts():
+    accounts = load_json_data()
+    print("Current Account Length: {}".format(len(accounts)))
+    investigate = list(range(100000000000, 100005000000, 1000))
+    thread_collect_accounts(accounts, investigate)
+
+
 if __name__ == "__main__":
-    # Update Accounts
-    update_accounts = False
-    if update_accounts:
-        end_max = 65000000000
-        # end_max = 7000000000
-        vals = range(0, end_max, 1000000000)
-        for min, max in zip(vals, vals[1:]):
-            #print(min, max)
-            thread_update_accounts(min, max)
+    find_new_accounts()
+    # collect_grind_data(30120006000)
 
     # TODO: Create a click interface to download the changes for the day and scrape only those items.
-
-    # thread_update_accounts(6000000000, 7000000001)
-    # uuid = <VALID UUID>
-    # print(collect_grind_data(uuid))
-
-    # x = collect_grind_times([], 22597005000, page=1)
-    # print(len(x))
-    # 18014003000
-
-    #collect_account_numbers(451000000000, 451001111030, 1000000)
-    #split_accounts()
+    # thread_update_accounts(80000000000, 500000000000)
+    # collect_account_numbers(451000000000, 451001111030, 1000000)
+    # split_accounts()
     # data_merge = os.path.expanduser("~/Documents/grousemountaindata_special.json")
     # merge_to_main_accounts(data_merge)
 
-    number = 451000000000
-    root_url = "http://www.grousemountain.com/grind_stats/{}/".format(number)
-    with urllib.request.urlopen(root_url) as page:
-        soup = BeautifulSoup(page.read(), "html.parser")
-
-        # full name associated with the UUID
-        username = [div.find('h2') for div in soup.findAll('div', {'class': 'title red'})]
-        name = username[0].string.strip()
-        print(name)
