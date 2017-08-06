@@ -166,7 +166,7 @@ class Grind(GUI):
 
         # plot
         self.figure = plt.figure(facecolor='white', frameon=True)  # , tight_layout=True)
-        self.figure.subplots_adjust(bottom=0.35, left=0.05, right=0.8, top=0.9)
+        self.figure.subplots_adjust(bottom=0.45, left=0.05, right=0.8, top=0.9)
 
         self.axes = plt.axes()
 

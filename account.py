@@ -2,9 +2,7 @@ import os
 import re
 import json
 import datetime
-import ssl
-import urllib.request
-import urllib.error
+import requests
 import concurrent.futures
 from bs4 import BeautifulSoup
 
@@ -41,94 +39,88 @@ def collect_grind_times(grind_times, uuid, _page=1):
     uuid is the user's unique identifier
     the page is used if there are several pages of json data regarding past grind times.
     """
-    titles = ('date', 'start', 'end', 'time')
-    pattern = re.compile('.*page=(\d.*)&tab.*')
 
-    url_03 = "http://www.grousemountain.com/grind_stats/{0}?page={1}&tab=log".format(uuid, _page)
-    gcontext = ssl.SSLContext(ssl.PROTOCOL_SSLv23)  # Only for gangstars
-    try:
-        with urllib.request.urlopen(url_03, context=gcontext) as request:
-            soup = BeautifulSoup(request.read(), "html.parser")
+    payload = {"page": _page, 'tab': 'log'}
+    request = requests.get("http://www.grousemountain.com/grind_stats/{}".format(uuid), params=payload)
 
-            data = [table.findAll('tr') for table in soup.findAll('table', {'class': 'table grind_log thin'})]
-            for grinds in data:
-                for grind in grinds:
-                    times = [item.string.strip() for item in grind.findAll('td')]
-                    times = dict(zip(titles, times))
-                    if times and times not in grind_times:
-                        grind_times.append(times)
+    if request.status_code != requests.codes.ok:
+        print("[ERROR] {} - {}".format(request.status_code, request.url))
 
-            pages = _page
-            element = soup.find('a', text=re.compile('Last'))
-            if element is not None:
-                results = re.match(pattern, element['href'])
-                if results is not None:
-                    # print("Result: Pages={}".format(results.groups()[0]))
-                    pages = int(results.groups()[0])
+    else:
+        # setup vars
+        titles = ('date', 'start', 'end', 'time')
+        pattern = re.compile('.*page=(\d.*)&tab.*')
 
-            if _page < pages:
-                collect_grind_times(grind_times, uuid, _page=_page + 1)
+        # parse request
+        soup = BeautifulSoup(request.text, "html.parser")
+        data = [table.findAll('tr') for table in soup.findAll('table', {'class': 'table grind_log thin'})]
 
-    except urllib.error.URLError as e:
-        print("[ERROR] {}".format(e.reason))
+        # update grind times
+        for grinds in data:
+            for grind in grinds:
+                times = [item.string.strip() for item in grind.findAll('td')]
+                times = dict(zip(titles, times))
+                if times and times not in grind_times:
+                    grind_times.append(times)
+
+        # ensure each page is visited (grinds can cover many pages)
+        pages = _page
+        element = soup.find('a', text=re.compile('Last'))
+        if element is not None:
+            results = re.match(pattern, element['href'])
+            if results is not None:
+                # print("Result: Pages={}".format(results.groups()[0]))
+                pages = int(results.groups()[0])
+
+        if _page < pages:
+            collect_grind_times(grind_times, uuid, _page=_page + 1)
 
     return grind_times
 
 
-def collect_grind_data(number):
-    root_url = "http://www.grousemountain.com/grind_stats/{}/?mobile=0".format(number)
-    gcontext = ssl.SSLContext(ssl.PROTOCOL_SSLv23)  # Only for gangstars
-    try:
-        with urllib.request.urlopen(root_url, context=gcontext) as page:
-            soup = BeautifulSoup(page.read(), "html.parser")
+def collect_grind_data(uuid):
 
-            # full name associated with the UUID
-            username = (div.find('h3').text for div in soup.findAll('div', {'class': 'grind-stats__welcome'}))
-            name = next(username).strip()
+    payload = {'mobile': '0'}
+    request = requests.get("http://www.grousemountain.com/grind_stats/{}/".format(uuid), params=payload)
 
-            # is the user male or female?
-            sex = None
-            for sex_type in soup.findAll('small'):
-                test = sex_type.text.strip()
-                if "Men" in test:
-                    sex = "Male"
-                    break
-                elif "Women" in test:
-                    sex = "Female"
-                    break
+    if request.status_code != requests.codes.ok:
+        print("[ERROR] {} - {}".format(request.status_code, request.url))
+        return uuid, "Not Found", None, None, []
 
-            # get approximate age of the user
-            age = None
-            for age_range in soup.findAll('small'):
-                test = age_range.string.strip()
-                if "Age" in test:
-                    age = test.split("Age")[1].strip(") ")
+    # parse request
+    soup = BeautifulSoup(request.text, "html.parser")
 
-            grinds = []
-            grinds = collect_grind_times(grinds, number)
-            print("[{}]: Found {}'s age:({}), sex:({}), and a number of grinds:({})".format(number,
-                                                                                            name,
-                                                                                            age,
-                                                                                            sex,
-                                                                                            len(grinds)))
+    # full name associated with the UUID
+    username = (div.find('h3').text for div in soup.findAll('div', {'class': 'grind-stats__welcome'}))
+    name = next(username).strip()
 
-            return str(number), name, age, sex, grinds
+    # is the user male or female?
+    sex = None
+    for sex_type in soup.findAll('small'):
+        test = sex_type.text.strip()
+        if "Men" in test:
+            sex = "Male"
+            break
+        elif "Women" in test:
+            sex = "Female"
+            break
 
-    except urllib.error.HTTPError as e:
-        if e.code == 404:
-            print('[{}] {}: {}'.format(number, e.code, e.reason))
-        else:
-            print('[{}] {}: {}'.format(number, e.code, e.reason))
+    # get approximate age of the user
+    age = None
+    for age_range in soup.findAll('small'):
+        test = age_range.string.strip()
+        if "Age" in test:
+            age = test.split("Age")[1].strip(") ")
 
-        return number, "Not Found", None, None, []
+    grinds = []
+    grinds = collect_grind_times(grinds, uuid)
+    print("[{}]: Found {}'s age:({}), sex:({}), and a number of grinds:({})".format(uuid,
+                                                                                    name,
+                                                                                    age,
+                                                                                    sex,
+                                                                                    len(grinds)))
 
-    except urllib.error.URLError as e:
-        print("{}: {}".format(number, e.reason))
-        return number, "Not Found", None, None, []
-
-    # except Exception as e:
-    #     print("{}: {}".format(number, e))
-    #     return number, "Not Found", None, None, []
+    return str(uuid), name, age, sex, grinds
 
 
 def thread_collect_accounts(accounts, numbers, pool=42):
@@ -157,7 +149,7 @@ def thread_collect_accounts(accounts, numbers, pool=42):
         dump_json_data(accounts)
 
 
-def collect_account_numbers(min, max, step):
+def collect_account_numbers(min_, max_, step):
     """
     - Loads the current verified account numbers and a list of failed accounts so that the process doesn't have to be
     completed in one single run.
@@ -165,8 +157,8 @@ def collect_account_numbers(min, max, step):
     - Put both lists together -- and then attempt to find numbers not yet in either list and test if the result returns
     a valid account.
         -- If if it does -- add it to the verified account numbers with relevant data.
-    :param min: Minimum account number to start
-    :param max: Maximum account number to end
+    :param min_: Minimum account number to start
+    :param max_: Maximum account number to end
     :param step: Instead of counting by 1 -- you can specify the step count.
     :return:
     """
@@ -174,12 +166,12 @@ def collect_account_numbers(min, max, step):
     file = os.path.expanduser("~/Documents/grousemountain_baddata.json")
     accounts_not_found = load_json_data(_storage_path=file)
 
-    def get_unknown_uuids(min, max, step, _accounts, options):
+    def get_unknown_uuids(min_, max_, step, accounts_, options):
         numbers = list()
         for option in options:
             print("Collecting: {}".format(option))
-            for number in range(min + option, max + option, step):
-                if str(number) not in _accounts.keys():
+            for number in range(min_ + option, max_ + option, step):
+                if str(number) not in accounts_.keys():
                     # print("[info] Found an uncollected number: {}".format(number))
                     numbers.append(number)
         print("[info] New numbers found: {}".format(len(numbers)))
@@ -192,7 +184,7 @@ def collect_account_numbers(min, max, step):
 
     all_accounts = accounts.copy()
     all_accounts.update(accounts_not_found)
-    if max > 100000:  # 00000:
+    if max_ > 100000:  # 00000:
         # accounts seem to end in:
         options = [0]
         # 8000,  # 18000,
@@ -202,10 +194,10 @@ def collect_account_numbers(min, max, step):
         # 4000, 14000,
         # 3000, 13000,
         # 2000, 12000]
-        numbers = get_unknown_uuids(min, max, step, all_accounts, options)
+        numbers = get_unknown_uuids(min_, max_, step, all_accounts, options)
     else:
         options = [0]
-        numbers = get_unknown_uuids(min, max, step, all_accounts, options)
+        numbers = get_unknown_uuids(min_, max_, step, all_accounts, options)
 
     chunk_size = 50
     chunks = chunks(numbers, chunk_size)
@@ -257,12 +249,12 @@ def merge_to_main_accounts(_path_to_merge):
         dump_json_data(accounts)
 
 
-def update_accounts(min=0, start=44500000000, stop=445000000000000):
+def update_accounts(min_=0, start=44500000000, stop=445000000000000):
     current_date = datetime.datetime.now().strftime("%Y-%m-%d")
     accounts = load_json_data()
     dirty = False
     for uuid, data in accounts.items():
-        if len(accounts[uuid]['grinds']) > min and start < int(uuid) < stop:
+        if len(accounts[uuid]['grinds']) > min_ and start < int(uuid) < stop:
 
             if 'last_update' in accounts[uuid]:
                 # print(uuid, "Needs Updating...")
@@ -314,7 +306,8 @@ def thread_update_accounts(_min, _max):
     dirty = False
 
     with concurrent.futures.ProcessPoolExecutor() as executor:
-        futures = [executor.submit(update_account, uuid, data) for uuid, data in accounts.items() if _min < int(uuid) < _max]
+        futures = [executor.submit(update_account, uuid, data)
+                   for uuid, data in accounts.items() if _min < int(uuid) < _max]
         concurrent.futures.wait(futures, timeout=10)
 
         results = [future.result() for future in concurrent.futures.as_completed(futures)]
@@ -362,7 +355,7 @@ def experiment_002():
 def find_new_accounts():
     accounts = load_json_data()
     print("Current Account Length: {}".format(len(accounts)))
-    investigate = list(range(100000000000, 100005000000, 1000))
+    investigate = list(range(484050000000, 484055000000, 5000))
     thread_collect_accounts(accounts, investigate)
 
 
@@ -376,4 +369,3 @@ if __name__ == "__main__":
     # split_accounts()
     # data_merge = os.path.expanduser("~/Documents/grousemountaindata_special.json")
     # merge_to_main_accounts(data_merge)
-
