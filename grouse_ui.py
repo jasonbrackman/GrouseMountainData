@@ -143,7 +143,7 @@ class Grind(GUI):
         self.setup_ui_search(self.top_frame, column=6)
 
         # listbox UI and contents
-        self.info_columns = ["UUID", "Name", "Age", "Sex", "Grinds", "Best"]
+        self.info_columns = ["UUID", "Name", "Sex", "Age", "Grinds", "Best"]
         info = self._get_grinders_based_on_criteria()
         self.tree_info = self.create_treeview(self.mid_frame, self.info_columns, info,
                                               column=0, row=0, weight=0, _scrollbar=True)
@@ -440,14 +440,14 @@ class Grind(GUI):
 
         try:
             info = [(uuid, data['name'], data['sex'], data['age'],
-                     len([date for date in data['grinds'] if _year == 'All Time' or date['date'].startswith(_year)]),
+                     len([date for date in data['grinds'] if 'start' in date and (_year == 'All Time' or date['date'].startswith(_year))]),
                      self._get_best_grind_time(uuid))
 
                     for uuid, data in self.grinders.items()
                     if not any(name for name in test_accounts if name.lower() in data['name'].lower()) and
                     data['grinds'] is not None and _min <= len(data['grinds']) <= _max and
-                    (_age == 'All' or str(data['sex']) in _age) and
-                    (_sex == 'All' or str(data['age']) in _sex) and  # age and sex are reversed :(
+                    (_age == 'All' or str(data['age']) in _age) and
+                    (_sex == 'All' or str(data['sex']) in _sex) and
                     (_year == "All Time" or any(date['date'].startswith(_year) for date in data['grinds'])) and
                     _search.lower() in data['name'].lower()]
 
@@ -550,7 +550,7 @@ class Grind(GUI):
                 self.grinders[value]['grinds'] = list()
 
             for grind in grinds:
-                if grind not in self.grinders[value]['grinds']:
+                if 'start' in grind and grind not in self.grinders[value]['grinds']:
                     self.grinders[value]['grinds'].append(grind)
 
     def _clear_plots(self):
@@ -647,17 +647,19 @@ class Grind(GUI):
         self.log("[info] Name: {} -- UUID: {} -- Grinds: {} -- Last Updated: {}".format(
             self.grinders[value]['name'],
             value,
-            len(self.grinders[value]['grinds']),
+            len([grind for grind in self.grinders[value]['grinds'] if 'start' in grind]),
             self.grinders[value]['last_update']))
 
         grinds = self.grinders[value]['grinds']
         year = self.var_year.get()
         if grinds is not None:
             collector = [[grind['date'],
-                          self.convert_standard_to_military_time(grind['start']),
-                          self.convert_standard_to_military_time(grind['end']),
-                          grind['time']] for grind in grinds if year == 'All Time' or grind['date'].startswith(year)]
+                         self.convert_standard_to_military_time(grind['start']),
+                         self.convert_standard_to_military_time(grind['end']),
+                         grind['time']] for grind in grinds
+                         if 'start' in grind and (year == 'All Time' or grind['date'].startswith(year))]
             collector = sorted(collector, key=lambda x: x[0])
+
             self.populate_treeview(self.tree_grind, self.headers, collector)
             self._update_plot(collector, label=self.grinders[value]['name'])
 
