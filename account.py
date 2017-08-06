@@ -283,23 +283,29 @@ def update_accounts(min=0, start=44500000000, stop=445000000000000):
         dump_json_data(accounts)
 
 
-def update_account(uuid, data):
+def update_account(uuid, record):
+    """
+    Takes a unique id and a record and returns the data, altered if appropriate.
+    :param uuid: the unique identifier for the record
+    :param record: a dict containing 0 to n pieces of data
+    :return: uuid, record
+    """
     current_date = datetime.datetime.now().strftime("%Y-%m-%d")
 
-    if data['grinds'] is None:
-        data['grinds'] = list()
+    if record['grinds'] is None:
+        record['grinds'] = list()
 
-    if data['last_update'] == current_date:
-        print("Already updated today: {}".format(data['last_update']))
+    if record['last_update'] == current_date:
+        print("Already updated today: {}: {}".format(record['last_update'], record['name']))
     else:
         uuid, name, age, sex, grinds = collect_grind_data(uuid)
         for grind in grinds:
-            if grind not in data['grinds']:
-                data['grinds'].append(grind)
+            if grind not in record['grinds']:
+                record['grinds'].append(grind)
 
-        data['last_update'] = current_date
+        record['last_update'] = current_date
 
-    return uuid, data
+    return uuid, record
 
 
 def thread_update_accounts(_min, _max):
