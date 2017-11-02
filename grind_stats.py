@@ -1,22 +1,36 @@
 import account
 import requests
+import logging
 from bs4 import BeautifulSoup
 
+logger = logging.getLogger(__name__)
 
-def missing_accounts(missings: list, storage_location='./data/missings.json'):
+
+def update_missing_accounts(missings: list, storage_location='./data/missings.json'):
+    """
+    Keeps a very simple tally of missing account names and numbers from the known database.
+    :param missings: list: current list of missing accounts.
+    :param storage_location: str: path to location on disk
+    :return:
+    """
     records = account.load_json_data(storage_location)
     records = records if records else {'missing': []}
     records['missing'] = list(set(records['missing'] + missings))
 
-    print("[info] Length of missing peeps: {}".format(len(records['missing'])))
+    logger.info("Length of missing peeps: {}".format(len(records['missing'])))
 
     account.dump_json_data(records, storage_location)
 
 
-def todays_grinds():
-    root_url = "https://grousemountain.com/grind_stats#key7"
-    page = requests.get(root_url)
+def yield_todays_grinds():
+    """
+    Using some parsing magic keys and phrases collect the day's Grouse Grinds logged on the main page.
+    - Note that this page is constantly updated throughout the day
+    - I have not bothered to find out when exactly the page resets
+    :yields: list of items.
+    """
 
+    page = requests.get("https://grousemountain.com/grind_stats#key7")
     soup = BeautifulSoup(page.text, "html.parser")
     for name in soup.findAll('tr'):
         tds = name.findAll('td')
@@ -25,34 +39,34 @@ def todays_grinds():
             if len(items) == 4 and items[1].startswith(("M", "F")):
                 yield items
 
+
 if __name__ == "__main__":
+    logging.basicConfig(format='%(asctime)s - %(name)-8s - %(levelname)-8s - %(message)s',
+                        datefmt='%m-%d-%Y %H:%M',
+                        level=logging.INFO)
     dirty = False
 
     # load existing account data
     accounts = account.load_json_data()
 
     # Get today's grinds
-    names = (grind[0] for grind in todays_grinds())
     missings = list()
-    for name in names:
+
+    uuids_and_records = list()
+
+    for name, _, _, _ in yield_todays_grinds():
         found = False
 
         for uuid, record in accounts.items():
             if record['name'].lower() == name.lower():
                 found = True
-                # print("Existing Account: {}".format(name))
-                _uuid, _record = account.update_account(uuid, record)
-                accounts[_uuid] = _record
-                dirty = True
+                uuids_and_records.append((uuid, record))
                 break
 
         if not found:
+            logger.warning("Missing name from existing records: {}".format(name))
             missings.append(name)
 
-    for missing in missings:
-        print('MISSING: {}'.format(missing))
+    update_missing_accounts(missings)
 
-    missing_accounts(missings)
-
-    if dirty:
-        account.dump_json_data(accounts)
+    account.thread_update_account(uuids_and_records)

@@ -27,7 +27,7 @@ def test_load_json_data():
 
 
 def test_dump_json_data():
-    account.load_json_data(_storage_path="")
+    account.load_json_data(storage_path="")
 
 
 if __name__ == '__main__':

@@ -1,7 +1,10 @@
 import account
 import itertools
+import logging
 from datetime import datetime
 import collections
+
+logger = logging.getLogger(__name__)
 
 
 def collect_grinds_by_year(accounts):
@@ -99,7 +102,7 @@ def display_multi_grind_table_stats():
 
     print("\n{:10}{:8}{:11}{}".format("Females", "Males", "Unknowns", "Same Day Attempts:"))
 
-    for index in range(1, 17):
+    for index in range(1, 18):
         male = [item for item in males if item[0] == index]
         female = [item for item in females if item[0] == index]
         unknown = [item for item in unknowns if item[0] == index]
@@ -112,8 +115,12 @@ def display_multi_grind_table_stats():
 
 
 if __name__ == "__main__":
+    logging.basicConfig(format='%(asctime)s - %(name)-8s - %(levelname)-8s - %(message)s',
+                        datefmt='%m-%d-%Y %H:%M',
+                        level=logging.INFO)
+
     accounts = account.load_json_data()
-    print(len(accounts))
+    logger.debug("Number of accounts in database: {}".format(len(accounts)))
 
     # collect_grinds_by_year(accounts)
     display_multi_grind_table_stats()
@@ -141,4 +148,4 @@ if __name__ == "__main__":
             print('{:6}\t{:6}\t{:10}'.format(m, multi, attempts))
             m = '   '
 
-    print("Total Grinds For Season: {}".format(total_grinds))
+    logger.info("Total Grinds For Season: {}".format(total_grinds))

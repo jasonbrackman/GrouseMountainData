@@ -3,29 +3,39 @@ import re
 import json
 import datetime
 import requests
+import logging
 import concurrent.futures
+from multiprocessing import Pool
 from bs4 import BeautifulSoup
 
+logger = logging.getLogger(__name__)
 
-def load_json_data(_storage_path=os.path.expanduser("~/Documents/grousemountaindata.json")):
-    print("[LOADING] {}".format(_storage_path))
+
+def load_json_data(storage_path=os.path.expanduser("~/Documents/grousemountaindata.json")):
+    """
+    Standardized loading of json data
+    - includes feedback to the console
+    :param storage_path:
+    :return:
+    """
+    logger.info("[LOADING] {}".format(storage_path))
 
     # default accounts dict() to return if nothing has yet been saved to a file.
     accounts = dict()
-    if os.path.isfile(_storage_path):
-        with open(_storage_path, 'r', ) as handle:
+    if os.path.isfile(storage_path):
+        with open(storage_path, 'r', ) as handle:
             accounts = json.load(handle)
 
-    print("[LOADING] Complete!")
+    logger.info("[LOADING] Complete!")
 
     return accounts
 
 
-def dump_json_data(data, _storage_path=os.path.expanduser("~/Documents/grousemountaindata.json")):
-    print("[SAVING] {}".format(_storage_path))
-    with open(_storage_path, 'w') as handle:
+def dump_json_data(data, storage_path=os.path.expanduser("~/Documents/grousemountaindata.json")):
+    logger.info("[SAVING] {}".format(storage_path))
+    with open(storage_path, 'w') as handle:
         json.dump(data, handle)
-    print("[SAVING] Complete!")
+    logger.info("[SAVING] Complete!")
 
 
 def add_account(accounts, uuid=-1, name=None, age=None, sex=None, grinds=None, last_update=None):
@@ -35,16 +45,17 @@ def add_account(accounts, uuid=-1, name=None, age=None, sex=None, grinds=None, l
 
 def collect_grind_times(grind_times, uuid, _page=1):
     """
-    grind_times is a list that contains dicts of date, start, end, time
-    uuid is the user's unique identifier
-    the page is used if there are several pages of json data regarding past grind times.
+    :param grind_times: list() -- can be empty or contain dict(s) of date, start, end, time
+    :param uuid: unique identifier
+    :param _page: used in recurssive calls to same function when there are several pages of grind times.
+    :return:
     """
 
     payload = {"page": _page, 'tab': 'log'}
     request = requests.get("http://www.grousemountain.com/grind_stats/{}".format(uuid), params=payload)
 
     if request.status_code != requests.codes.ok:
-        print("[ERROR] {} - {}".format(request.status_code, request.url))
+        logger.error("{} - {}".format(request.status_code, request.url))
 
     else:
         # setup vars
@@ -84,7 +95,7 @@ def collect_grind_data(uuid):
     request = requests.get("http://www.grousemountain.com/grind_stats/{}/".format(uuid), params=payload)
 
     if request.status_code != requests.codes.ok:
-        print("[ERROR] {} - {}".format(request.status_code, request.url))
+        logger.error("{} - {}".format(request.status_code, request.url))
         return uuid, "Not Found", None, None, []
 
     # parse request
@@ -108,17 +119,13 @@ def collect_grind_data(uuid):
     # get approximate age of the user
     age = None
     for age_range in soup.findAll('small'):
-        test = age_range.string.strip()
-        if "Age" in test:
-            age = test.split("Age")[1].strip(") ")
+        if "Age" in age_range.string:
+            age = age_range.string.strip()
+            age = age.split("Age")[1].strip(") ")
 
-    grinds = []
-    grinds = collect_grind_times(grinds, uuid)
-    print("[{}]: Found {}'s age:({}), sex:({}), and a number of grinds:({})".format(uuid,
-                                                                                    name,
-                                                                                    age,
-                                                                                    sex,
-                                                                                    len(grinds)))
+    grinds = collect_grind_times(list(), uuid)
+    logger.info("[{}]: Found {}'s age:({}), sex:({}), and a number of grinds:({})".format(uuid, name, age, sex,
+                                                                                          len(grinds)))
 
     return str(uuid), name, age, sex, grinds
 
@@ -142,7 +149,7 @@ def thread_collect_accounts(accounts, numbers, pool=42):
                                        sex=result[3],
                                        grinds=result[4])
 
-                print("new: {}".format(result[0]))
+                logger.info("new: {}".format(result[0]))
                 dirty = True
 
     if dirty:
@@ -164,17 +171,17 @@ def collect_account_numbers(min_, max_, step):
     """
     accounts = load_json_data()
     file = os.path.expanduser("~/Documents/grousemountain_baddata.json")
-    accounts_not_found = load_json_data(_storage_path=file)
+    accounts_not_found = load_json_data(storage_path=file)
 
     def get_unknown_uuids(min_, max_, step, accounts_, options):
         numbers = list()
         for option in options:
-            print("Collecting: {}".format(option))
+            logger.info("Collecting: {}".format(option))
             for number in range(min_ + option, max_ + option, step):
                 if str(number) not in accounts_.keys():
                     # print("[info] Found an uncollected number: {}".format(number))
                     numbers.append(number)
-        print("[info] New numbers found: {}".format(len(numbers)))
+        logger.info("New numbers found: {}".format(len(numbers)))
         return numbers
 
     def chunks(items, chunk_size):
@@ -203,7 +210,7 @@ def collect_account_numbers(min_, max_, step):
     chunks = chunks(numbers, chunk_size)
     for index, chunk in enumerate(chunks, 1):
         thread_collect_accounts(accounts, chunk)
-        print('[info] Finished testing/collecting block {}/{}.'.format(index, len(numbers)/chunk_size))
+        logger.info('Finished testing/collecting block {}/{}.'.format(index, len(numbers)/chunk_size))
 
 
 def split_accounts():
@@ -213,25 +220,25 @@ def split_accounts():
 
     bad_accounts_dirty = False
     file = os.path.expanduser("~/Documents/grousemountain_baddata.json")
-    bad_accounts = load_json_data(_storage_path=file)
+    bad_accounts = load_json_data(storage_path=file)
     for info in collection:
         uuid, data = info
         if uuid not in bad_accounts.keys():
             bad_accounts[uuid] = data
             bad_accounts_dirty = True
     if bad_accounts_dirty:
-        dump_json_data(bad_accounts, _storage_path=file)
+        dump_json_data(bad_accounts, storage_path=file)
 
     for uuid in bad_accounts.keys():
         if uuid in accounts.keys():
             del accounts[uuid]
     dump_json_data(accounts)
 
-    print("Length of bad accounts: {}".format(len(bad_accounts)))
+    logger.info("Length of bad accounts: {}".format(len(bad_accounts)))
 
 
 def merge_to_main_accounts(_path_to_merge):
-    data_merge = load_json_data(_storage_path=_path_to_merge)
+    data_merge = load_json_data(storage_path=_path_to_merge)
     accounts = load_json_data()
     dirty = False
     for uuid, data in data_merge.items():
@@ -243,7 +250,7 @@ def merge_to_main_accounts(_path_to_merge):
                     if grind not in accounts[uuid]['grinds']:
                         accounts[uuid]['grinds'].append(grind)
                         dirty = True
-                        print('Updating: {}'.format(data['name']))
+                        logger.info('Updating: {}'.format(data['name']))
 
     if dirty:
         dump_json_data(accounts)
@@ -267,7 +274,7 @@ def update_accounts(min_=0, start=44500000000, stop=445000000000000):
                 for grind in grinds:
                     if grind not in accounts[uuid]['grinds']:
                         accounts[uuid]['grinds'].append(grind)
-                        print('\tFound New Grind...')
+                        logger.info('\tFound New Grind...')
                         dirty = True
 
                 accounts[uuid]['last_update'] = current_date
@@ -284,11 +291,11 @@ def update_account(uuid, record):
     """
     current_date = datetime.datetime.now().strftime("%Y-%m-%d")
 
-    if record['grinds'] is None:
-        record['grinds'] = list()
+    # Ensure a default list() exists for the 'grinds' key
+    record['grinds'] = record.get('grinds', list())
 
     if record['last_update'] == current_date:
-        print("Already updated today: {}: {}".format(record['last_update'], record['name']))
+        logger.debug("Already updated today: {}: {}".format(record['last_update'], record['name']))
     else:
         uuid, name, age, sex, grinds = collect_grind_data(uuid)
         for grind in grinds:
@@ -321,7 +328,26 @@ def thread_update_accounts(_min, _max):
     if dirty:
         dump_json_data(accounts)
 
-    print("Completed...")
+    logger.info("Completed...")
+
+
+def thread_update_account(uuids_and_records):
+    accounts = load_json_data()
+    dirty = False
+
+    with Pool(10) as pool:
+        results = pool.starmap(update_account, uuids_and_records)
+
+        for result in results:
+            if result is not None:
+                uuid, data = result
+                accounts[uuid] = data
+                dirty = True
+
+    if dirty:
+        dump_json_data(accounts)
+
+    logger.info("Completed...")
 
 
 def experiment_001():
@@ -354,8 +380,8 @@ def experiment_002():
 
 def find_new_accounts():
     accounts = load_json_data()
-    print("Current Account Length: {}".format(len(accounts)))
-    investigate = list(range(484050000000, 484055000000, 5000))
+    logger.info("Current Account Length: {}".format(len(accounts)))
+    investigate = list(range(500100000000, 510000000000, 1000000))
     thread_collect_accounts(accounts, investigate)
 
 

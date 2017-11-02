@@ -1,4 +1,5 @@
 import os
+import logging
 import matplotlib
 
 # note that the 'TKAgg' is telling matplotlib to work with Tkinter
@@ -14,8 +15,6 @@ import datetime
 import account
 import tkinter as tk
 import tkinter.ttk as ttk
-
-
 
 
 class GUI:
@@ -209,6 +208,7 @@ class Grind(GUI):
         """
         Sets up a drop down list of options with a corresponding callback (trace) depending on what is chosen.
         -- Gender Setup
+        :param frame:
         :param var_age: a tkinter string variable
         :param column: what column should the drop down box be placed into.
         :return:
@@ -229,6 +229,7 @@ class Grind(GUI):
         """
         Sets up a drop down list of options with a corresponding callback (trace) depending on what is chosen.
         -- Gender Setup
+        :param frame:
         :param var_gender: a tkinter string variable
         :param column: what column should the drop down box be placed into.
         :return:
@@ -256,9 +257,9 @@ class Grind(GUI):
             if data['grinds'] is not None:
                 try:
                     collector += [item['date'].split("-")[0] for item in data['grinds']]
-                except TypeError as e:
-                    print(data['name'])
-                    print(data)
+                except TypeError:
+                    logging.exception(data['name'])
+                    logging.exception(data)
 
         years = list(set(collector))
         years.sort()
@@ -317,14 +318,14 @@ class Grind(GUI):
         unknowns = []
 
         # Collect and bucket the data
-        filter = None if not self.var_year.get().isdigit() else self.var_year.get()
+        filter_ = None if not self.var_year.get().isdigit() else self.var_year.get()
         for uuid, data in self.grinders.items():
             if data['grinds'] is not None:
                 sex = data['age']
                 grinds = len(data['grinds'])
 
-                if filter is not None:
-                    grinds = [item for item in data['grinds'] if filter in item['date']]
+                if filter_ is not None:
+                    grinds = [item for item in data['grinds'] if filter_ in item['date']]
                     grinds = len(grinds)
 
                 if sex is None:
@@ -408,8 +409,8 @@ class Grind(GUI):
         for grind in grinds:
             if 'time' in grind:
                 if "All Time" in _year or grind['date'].startswith(_year):
-                    hours, min, sec = grind['time'].split(":")
-                    seconds = int(hours)*3600 + int(min)*60 + int(sec)
+                    hours, minutes, sec = grind['time'].split(":")
+                    seconds = int(hours)*3600 + int(minutes)*60 + int(sec)
                     if best_time is None or seconds < best_time:
                         best_time = seconds
         if best_time is not None:
@@ -452,7 +453,7 @@ class Grind(GUI):
                     _search.lower() in data['name'].lower()]
 
         except TypeError as e:
-            print(e)
+            logging.exception(e)
             info = []
 
         self.log("Number of accounts found: {}".format(len(info)))
@@ -542,7 +543,7 @@ class Grind(GUI):
 
         for item in self.tree_info.selection():
             value = str(self.tree_info.item(item)['values'][0])
-            print('[FETCHING] Collecting account #{} data...'.format(value))
+            logging.info('[FETCHING] Collecting account #{} data...'.format(value))
             uuid, name, age, sex, grinds = account.collect_grind_data(value)
             self.grinders[value]['age'] = age
             self.grinders[value]['sex'] = sex
@@ -599,15 +600,15 @@ class Grind(GUI):
         for col in columns:
             tree.heading(col, text=col, command=lambda c=col: self.sortby(tree, c, 0))
 
-            _width = 140
+            width_ = 140
             if col == "Name":
-                _width = 130
+                width_ = 130
             elif col in ("Grinds", "Age", "Sex", "Best"):
-                _width = 70
-            elif col == 'Date' or col == 'Start' or col == 'End' or col == 'Time':
-                _width = None
+                width_ = 70
+            elif col in ('Date', 'Start', 'End', 'Time'):
+                width_ = 150
 
-            tree.column(col, width=_width)
+            tree.column(col, width=width_)
 
         for index, row in enumerate(rows):
             if index % 2 == 0:
@@ -726,6 +727,7 @@ def grouse_grind_app():
     Grind(root)
     root.mainloop()
 
+
 def test_app():
     root = tk.Tk()
     root.title("Grouse Grind App 0.5")
@@ -735,5 +737,6 @@ def test_app():
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
     grouse_grind_app()
     # test_app()
