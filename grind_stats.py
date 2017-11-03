@@ -13,12 +13,9 @@ def update_missing_accounts(missings: list, storage_location='./data/missings.js
     :param storage_location: str: path to location on disk
     :return:
     """
+
     records = account.load_json_data(storage_location)
-    records = records if records else {'missing': []}
-    records['missing'] = list(set(records['missing'] + missings))
-
-    logger.info("Length of missing peeps: {}".format(len(records['missing'])))
-
+    records['missing'] = list(set(records.get('missing', list()) + missings))
     account.dump_json_data(records, storage_location)
 
 
@@ -32,26 +29,26 @@ def yield_todays_grinds():
 
     page = requests.get("https://grousemountain.com/grind_stats#key7")
     soup = BeautifulSoup(page.text, "html.parser")
-    for name in soup.findAll('tr'):
-        tds = name.findAll('td')
-        if tds and len(tds) == 4:
-            items = [td.text.strip() for td in tds if td.text.strip() != '']
-            if len(items) == 4 and items[1].startswith(("M", "F")):
-                yield items
+    tds = (tr_tag.findAll('td') for tr_tag in soup.findAll('tr'))
+    tds = (td.text.strip() for td in tds if hasattr(td, 'text'))
+
+    for items in tds:
+        if items[1].startswith(("M", "F")):
+            yield items
 
 
-if __name__ == "__main__":
-    logging.basicConfig(format='%(asctime)s - %(name)-8s - %(levelname)-8s - %(message)s',
-                        datefmt='%m-%d-%Y %H:%M',
-                        level=logging.INFO)
-    dirty = False
+def get_found_and_missing_accounts():
+    """
+    Find all the account UUIDs & Records as well as the missing users.
+    - Return them as two different lists to be kept track of
+    :return: list(), list() - first list is found account info, the second is missing.
+    """
 
     # load existing account data
     accounts = account.load_json_data()
 
-    # Get today's grinds
+    # Get today's Grind Info.
     missings = list()
-
     uuids_and_records = list()
 
     for name, _, _, _ in yield_todays_grinds():
@@ -67,6 +64,19 @@ if __name__ == "__main__":
             logger.warning("Missing name from existing records: {}".format(name))
             missings.append(name)
 
-    update_missing_accounts(missings)
+    return uuids_and_records, missings
 
-    account.thread_update_account(uuids_and_records)
+
+if __name__ == "__main__":
+    logging.basicConfig(format='%(asctime)s - %(name)-8s - %(levelname)-8s - %(message)s',
+                        datefmt='%m-%d-%Y %H:%M',
+                        level=logging.INFO)
+
+    uuids_and_records, missings = get_found_and_missing_accounts()
+
+    if uuids_and_records:
+        account.thread_update_account(uuids_and_records)
+
+    if missings:
+        update_missing_accounts(missings)
+
