@@ -6,6 +6,12 @@ from bs4 import BeautifulSoup
 logger = logging.getLogger(__name__)
 
 
+def get_soup(url):
+    request = requests.get(url)
+    soup = BeautifulSoup(request.text, "html.parser")
+    return soup
+
+
 def update_missing_accounts(missings: list, storage_location='./data/missings.json'):
     """
     Keeps a very simple tally of missing account names and numbers from the known database.
@@ -27,14 +33,14 @@ def yield_todays_grinds():
     :yields: list of items.
     """
 
-    page = requests.get("https://grousemountain.com/grind_stats#key7")
-    soup = BeautifulSoup(page.text, "html.parser")
-    tds = (tr_tag.findAll('td') for tr_tag in soup.findAll('tr'))
-    tds = (td.text.strip() for td in tds if hasattr(td, 'text'))
+    soup = get_soup("https://grousemountain.com/grind_stats#key7")
 
-    for items in tds:
-        if items[1].startswith(("M", "F")):
-            yield items
+    # start pipeling a collection of users that did the grind today
+    td_sets = (tr_tag.findAll('td') for tr_tag in soup.findAll('tr'))
+    td_sets = ([td.text.strip() for td in td_set] for td_set in td_sets if len(td_set) == 4)
+
+    for td_set in td_sets:
+        yield td_set
 
 
 def get_found_and_missing_accounts():
