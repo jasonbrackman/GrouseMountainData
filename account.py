@@ -20,11 +20,12 @@ def load_json_data(storage_path=os.path.expanduser("~/Documents/grousemountainda
     """
     logger.info("[LOADING] {}".format(storage_path))
 
-    # default accounts dict() to return if nothing has yet been saved to a file.
-    accounts = dict()
-    if os.path.isfile(storage_path):
+    try:
         with open(storage_path, 'r', ) as handle:
             accounts = json.load(handle)
+    except FileExistsError:
+        # create empty dict() if nothing yet to load
+        accounts = dict()
 
     logger.info("[LOADING] Complete!")
 
@@ -38,7 +39,7 @@ def dump_json_data(data, storage_path=os.path.expanduser("~/Documents/grousemoun
     logger.info("[SAVING] Complete!")
 
 
-def add_account(accounts, uuid=-1, name=None, age=None, sex=None, grinds=None, last_update=None):
+def add_account(accounts: dict, uuid=-1, name=None, age=None, sex=None, grinds=None, last_update=None):
     accounts[uuid] = {"name": name, "age": age, "sex": sex, "grinds": grinds, 'last_update': last_update}
     return accounts
 
@@ -64,7 +65,7 @@ def collect_grind_times(grind_times, uuid, _page=1):
 
         # parse request
         soup = BeautifulSoup(request.text, "html.parser")
-        data = [table.findAll('tr') for table in soup.findAll('table', {'class': 'table grind_log thin'})]
+        data = (table.findAll('tr') for table in soup.findAll('table', {'class': 'table grind_log thin'}))
 
         # update grind times
         for grinds in data:
@@ -140,7 +141,7 @@ def thread_collect_accounts(accounts, numbers, pool=42):
 
         results = [future.result() for future in concurrent.futures.as_completed(futures)]
         for result in results:
-            if not result[1] == "Not Found":
+            if result[1] != "Not Found":
 
                 accounts = add_account(accounts,
                                        uuid=result[0],
@@ -213,75 +214,6 @@ def collect_account_numbers(min_, max_, step):
         logger.info('Finished testing/collecting block {}/{}.'.format(index, len(numbers)/chunk_size))
 
 
-def split_accounts():
-    # Split accounts between those that are "Not Found" and those that are valid.
-    accounts = load_json_data()
-    collection = [(uuid, data) for uuid, data in accounts.items() if data['name'] == "Not Found"]
-
-    bad_accounts_dirty = False
-    file = os.path.expanduser("~/Documents/grousemountain_baddata.json")
-    bad_accounts = load_json_data(storage_path=file)
-    for info in collection:
-        uuid, data = info
-        if uuid not in bad_accounts.keys():
-            bad_accounts[uuid] = data
-            bad_accounts_dirty = True
-    if bad_accounts_dirty:
-        dump_json_data(bad_accounts, storage_path=file)
-
-    for uuid in bad_accounts.keys():
-        if uuid in accounts.keys():
-            del accounts[uuid]
-    dump_json_data(accounts)
-
-    logger.info("Length of bad accounts: {}".format(len(bad_accounts)))
-
-
-def merge_to_main_accounts(_path_to_merge):
-    data_merge = load_json_data(storage_path=_path_to_merge)
-    accounts = load_json_data()
-    dirty = False
-    for uuid, data in data_merge.items():
-        if uuid in accounts:
-            if accounts[uuid]['grinds'] is None:
-                accounts[uuid]['grinds'] = data['grinds']
-            else:
-                for grind in data['grinds']:
-                    if grind not in accounts[uuid]['grinds']:
-                        accounts[uuid]['grinds'].append(grind)
-                        dirty = True
-                        logger.info('Updating: {}'.format(data['name']))
-
-    if dirty:
-        dump_json_data(accounts)
-
-
-def update_accounts(min_=0, start=44500000000, stop=445000000000000):
-    current_date = datetime.datetime.now().strftime("%Y-%m-%d")
-    accounts = load_json_data()
-    dirty = False
-    for uuid, data in accounts.items():
-        if len(accounts[uuid]['grinds']) > min_ and start < int(uuid) < stop:
-
-            if 'last_update' in accounts[uuid]:
-                # print(uuid, "Needs Updating...")
-
-                uuid, name, age, sex, grinds = collect_grind_data(uuid)
-
-                if accounts[uuid]['grinds'] is None:
-                    accounts[uuid]['grinds'] = list()
-
-                for grind in grinds:
-                    if grind not in accounts[uuid]['grinds']:
-                        accounts[uuid]['grinds'].append(grind)
-                        logger.info('\tFound New Grind...')
-                        dirty = True
-
-                accounts[uuid]['last_update'] = current_date
-    if dirty:
-        dump_json_data(accounts)
-
-
 def update_account(uuid, record):
     """
     Takes a unique id and a record and returns the data, altered if appropriate.
@@ -298,10 +230,7 @@ def update_account(uuid, record):
         logger.debug("Already updated today: {}: {}".format(record['last_update'], record['name']))
     else:
         uuid, name, age, sex, grinds = collect_grind_data(uuid)
-        for grind in grinds:
-            if grind not in record['grinds']:
-                record['grinds'].append(grind)
-
+        [record['grinds'].append(grind) for grind in grinds if grind not in record['grinds']]
         record['last_update'] = current_date
 
     return uuid, record
@@ -350,38 +279,10 @@ def thread_update_account(uuids_and_records):
     logger.info("Completed...")
 
 
-def experiment_001():
-    # # Update Accounts
-    # update_accounts = True
-    # if update_accounts:
-    #     end_max = 500000
-    #     # end_max = 7000000000
-    #     # step = 1000000000
-    #     vals = range(0, end_max, 10000)
-    #     for min, max in zip(vals, vals[1:]):
-    #         print(min, max)
-    #         thread_update_accounts(min, max)
-    pass
-
-
-def experiment_002():
-    # NOT SURE WHAT I WAS TESTING HERE....
-    # number = 451000000000
-    # root_url = "http://www.grousemountain.com/grind_stats/{}/".format(number)
-    # with urllib.request.urlopen(root_url) as page:
-    #     soup = BeautifulSoup(page.read(), "html.parser")
-    #
-    #     # full name associated with the UUID
-    #     username = [div.find('h2') for div in soup.findAll('div', {'class': 'title red'})]
-    #     name = username[0].string.strip()
-    #     print(name)
-    pass
-
-
 def find_new_accounts():
     accounts = load_json_data()
     logger.info("Current Account Length: {}".format(len(accounts)))
-    investigate = list(range(500100000000, 510000000000, 1000000))
+    investigate = list(range(122500, 1000000, 1))
     thread_collect_accounts(accounts, investigate)
 
 
@@ -392,6 +293,3 @@ if __name__ == "__main__":
     # TODO: Create a click interface to download the changes for the day and scrape only those items.
     # thread_update_accounts(80000000000, 500000000000)
     # collect_account_numbers(451000000000, 451001111030, 1000000)
-    # split_accounts()
-    # data_merge = os.path.expanduser("~/Documents/grousemountaindata_special.json")
-    # merge_to_main_accounts(data_merge)
