@@ -2,9 +2,6 @@ import os
 import logging
 import matplotlib
 
-# note that the 'TKAgg' is telling matplotlib to work with Tkinter
-matplotlib.use('TkAgg')
-
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg  # , NavigationToolbar2TkAgg
 from matplotlib.dates import date2num, num2date
@@ -12,9 +9,12 @@ import numpy as np
 import random
 import time
 import datetime
-import account
+from datascrape.account import load_json_data
 import tkinter as tk
 import tkinter.ttk as ttk
+
+# note that the 'TKAgg' is telling matplotlib to work with Tkinter
+matplotlib.use('TkAgg')
 
 
 class GUI:
@@ -38,6 +38,7 @@ class GUI:
         - a log command to fill the status bar
         - a func to add an app icon.
     """
+
     def __init__(self, parent):
         # self.create_framed_gui(parent)
         self.create_windowpaned_gui(parent)
@@ -45,7 +46,8 @@ class GUI:
         # self.setup_app_icon()
 
     def create_windowpaned_gui(self, parent):
-        self.main_container = tk.PanedWindow(parent, orient=tk.VERTICAL, relief='groove', borderwidth=4, showhandle=True)
+        self.main_container = tk.PanedWindow(parent, orient=tk.VERTICAL, relief='groove', borderwidth=4,
+                                             showhandle=True)
         self.main_container.pack(side="top", fill="both", expand=True, anchor='center')
 
         # Top Frame
@@ -65,7 +67,7 @@ class GUI:
         self.main_container.add(self.bottom_frame)
 
         # status bar
-        self.status_msg = tk.StringVar()
+        self.status_msg = str(tk.StringVar())
         self.status_bar = tk.Label(parent, text=self.status_msg, bd=1, relief=tk.SUNKEN, anchor='w')
         self.status_bar.pack(side="bottom", fill="both")
 
@@ -88,7 +90,7 @@ class GUI:
         self.bottom_frame.pack(side="bottom", fill="both", expand=True)
 
         # status bar
-        self.status_msg = tk.StringVar()
+        self.status_msg = str(tk.StringVar())
         self.status_bar = tk.Label(parent, text=self.status_msg, bd=1, relief=tk.SUNKEN, anchor='w')
         self.status_bar.pack(side="bottom", fill="x")
 
@@ -117,7 +119,7 @@ class Grind(GUI):
 
     def __init__(self, parent):
         # Expensive Operation: get grind info
-        self.grinders = account.load_json_data()
+        self.grinders = load_json_data()
 
         self.gui = GUI.__init__(self, parent)
         # file menu
@@ -138,7 +140,8 @@ class Grind(GUI):
         self.setup_ui_gender(self.top_frame, self.var_gender, column=2)
         self.setup_ui_year(self.top_frame, self.var_year, column=3)
         self.sbx_grinds_min = self.setup_ui_spin(self.top_frame, self.var_min, text="Min:", default=0, row=0, column=4)
-        self.sbx_grinds_max = self.setup_ui_spin(self.top_frame, self.var_max, text="Max:", default=5000, row=0, column=5)
+        self.sbx_grinds_max = self.setup_ui_spin(self.top_frame, self.var_max, text="Max:", default=5000, row=0,
+                                                 column=5)
         self.setup_ui_search(self.top_frame, column=6)
 
         # listbox UI and contents
@@ -164,7 +167,7 @@ class Grind(GUI):
         self.tree_grind = self.create_treeview(self.mid_frame, self.headers, [], column=2, row=0, weight=1)
 
         # plot
-        self.figure = plt.figure(facecolor='white', frameon=True)  # , tight_layout=True)
+        self.figure = plt.figure(facecolor='white', frameon=True)  # , tight_layout=True
         self.figure.subplots_adjust(bottom=0.45, left=0.05, right=0.8, top=0.9)
 
         self.axes = plt.axes()
@@ -206,11 +209,11 @@ class Grind(GUI):
 
     def setup_ui_age(self, frame, var_age, column=0):
         """
-        Sets up a drop down list of options with a corresponding callback (trace) depending on what is chosen.
+        Sets up a dropdown list of options with a corresponding callback (trace) depending on what is chosen.
         -- Gender Setup
         :param frame:
         :param var_age: a tkinter string variable
-        :param column: what column should the drop down box be placed into.
+        :param column: what column should the drop-down box be placed into.
         :return:
         """
         var_age.set('All')
@@ -227,11 +230,11 @@ class Grind(GUI):
 
     def setup_ui_gender(self, frame, var_gender, column=0):
         """
-        Sets up a drop down list of options with a corresponding callback (trace) depending on what is chosen.
+        Sets up a drop-down list of options with a corresponding callback (trace) depending on what is chosen.
         -- Gender Setup
         :param frame:
         :param var_gender: a tkinter string variable
-        :param column: what column should the drop down box be placed into.
+        :param column: what column should the drop-down box be placed into.
         :return:
         """
         var_gender.set('All')
@@ -279,7 +282,7 @@ class Grind(GUI):
         lbl_spin.grid(row=row, column=column, sticky='wnse')
 
         spin_box = tk.Spinbox(frame, from_=0, to=4000, textvariable=var_spin, width=5)
-        spin_box.grid(row=(row+1), column=column, sticky='ns', pady=0, padx=0)
+        spin_box.grid(row=(row + 1), column=column, sticky='ns', pady=0, padx=0)
 
         return spin_box
 
@@ -297,9 +300,9 @@ class Grind(GUI):
         for rect in rects:
             height = rect.get_height()
             if height != 0 and total != 0:
-                self.ax.text(rect.get_x()+rect.get_width()/2.,
-                             1.05*height,
-                             '{0:.1%}'.format(height/total),
+                self.ax.text(rect.get_x() + rect.get_width() / 2.,
+                             1.05 * height,
+                             '{0:.1%}'.format(height / total),
                              ha='center', va='bottom')
 
     def _display_bar_graph(self, x, y, width=2, color=(1, 0, 0), edgecolor='none', yerr=None, autolabel=False):
@@ -341,7 +344,7 @@ class Grind(GUI):
         y_females = []
         y_unknowns = []
         for index, key in enumerate(keys):
-            if index == len(keys)-1:
+            if index == len(keys) - 1:
                 y_males.append(len([y for y in males if y >= keys[index]]))
                 y_females.append(len([y for y in females if y >= keys[index]]))
                 y_unknowns.append(len([y for y in unknowns if y >= keys[index]]))
@@ -391,11 +394,11 @@ class Grind(GUI):
 
         new_ticks = [item for item in keys if item != 0]
         new_ticks.append(max(new_ticks) + bucket_grinds_by)
-        self.ax.set_xticks([t-_width/2 for t in new_ticks])
+        self.ax.set_xticks([t - _width / 2 for t in new_ticks])
 
         new_ticks[-1] = ">100"
         self.ax.set_xticklabels(new_ticks)
-        self.dataplot.show()
+        # self.dataplot.show()
         self.log("[info]  Males: {} // Females: {} // Nones: {}".format(len(males),
                                                                         len(females),
                                                                         len(unknowns)))
@@ -410,7 +413,7 @@ class Grind(GUI):
             if 'time' in grind:
                 if "All Time" in _year or grind['date'].startswith(_year):
                     hours, minutes, sec = grind['time'].split(":")
-                    seconds = int(hours)*3600 + int(minutes)*60 + int(sec)
+                    seconds = int(hours) * 3600 + int(minutes) * 60 + int(sec)
                     if best_time is None or seconds < best_time:
                         best_time = seconds
         if best_time is not None:
@@ -441,7 +444,8 @@ class Grind(GUI):
 
         try:
             info = [(uuid, data['name'], data['sex'], data['age'],
-                     len([date for date in data['grinds'] if 'start' in date and (_year == 'All Time' or date['date'].startswith(_year))]),
+                     len([date for date in data['grinds'] if
+                          'start' in date and (_year == 'All Time' or date['date'].startswith(_year))]),
                      self._get_best_grind_time(uuid))
 
                     for uuid, data in self.grinders.items()
@@ -458,7 +462,7 @@ class Grind(GUI):
 
         self.log("Number of accounts found: {}".format(len(info)))
 
-        # sort by name (case insensitive)
+        # sort by name (case-insensitive)
         info = sorted(info, key=lambda info: info[1].lower())
 
         return info
@@ -533,30 +537,38 @@ class Grind(GUI):
         self.plot_attempts = not self.plot_attempts
 
     def _load_account(self):
-        self.grinders = account.load_json_data()
+        self.grinders = load_json_data()
 
     def _save_changes(self):
-        account.dump_json_data(self.grinders)
+        pass
+        # Since _update_account() will no longer do anything (and should never have been
+        # part of the UI) this is also commented out.  Should be removed once I understand
+        # where the UI hook for this is.
+
+        # account.dump_json_data(self.grinders)
 
     def _update_account(self):
-        # item_id = self.tree_info.focus()
+        pass
+        # Scraping will no longer work and this must have been a UI triggered
+        # action -- this should likely be moved to the datascrape\ dir for
+        # posterity, or just deleted.
 
-        for item in self.tree_info.selection():
-            value = str(self.tree_info.item(item)['values'][0])
-            logging.info('[FETCHING] Collecting account #{} data...'.format(value))
-            uuid, name, age, sex, grinds = account.collect_grind_data(value)
-            self.grinders[value]['age'] = age
-            self.grinders[value]['sex'] = sex
-            if self.grinders[value]['grinds'] is None:
-                self.grinders[value]['grinds'] = list()
-
-            for grind in grinds:
-                if 'start' in grind and grind not in self.grinders[value]['grinds']:
-                    self.grinders[value]['grinds'].append(grind)
+        # for item in self.tree_info.selection():
+        #     value = str(self.tree_info.item(item)['values'][0])
+        #     logging.info('[FETCHING] Collecting account #{} data...'.format(value))
+        #     uuid, name, age, sex, grinds = account.collect_grind_data(value)
+        #     self.grinders[value]['age'] = age
+        #     self.grinders[value]['sex'] = sex
+        #     if self.grinders[value]['grinds'] is None:
+        #         self.grinders[value]['grinds'] = list()
+        #
+        #     for grind in grinds:
+        #         if 'start' in grind and grind not in self.grinders[value]['grinds']:
+        #             self.grinders[value]['grinds'].append(grind)
 
     def _clear_plots(self):
         self.ax.clear()
-        self.dataplot.show()
+        # self.dataplot.show()
 
     def _plot_everything(self):
         for uuid, data in self.grinders.items():
@@ -638,11 +650,12 @@ class Grind(GUI):
 
         for ix, item in enumerate(data):
             tree.move(item[1], '', ix)
-        # switch the heading so it will sort in the opposite direction
-        tree.heading(col, command=lambda col=col: self.sortby(tree, col, int(not descending)))
+        # switch the heading to sort in the opposite direction
+        tree.heading(col, command=lambda col_=col: self.sortby(tree, col_, int(not descending)))
 
-    def display_grinds_for_tree(self, event):
+    def display_grinds_for_tree(self, _event):
         item_id = self.tree_info.focus()
+        print("Item ID:", str(item_id))
         value = str(self.tree_info.item(item_id)['values'][0])
 
         self.log("[info] Name: {} -- UUID: {} -- Grinds: {} -- Last Updated: {}".format(
@@ -655,9 +668,9 @@ class Grind(GUI):
         year = self.var_year.get()
         if grinds is not None:
             collector = [[grind['date'],
-                         self.convert_standard_to_military_time(grind['start']),
-                         self.convert_standard_to_military_time(grind['end']),
-                         grind['time']] for grind in grinds
+                          self.convert_standard_to_military_time(grind['start']),
+                          self.convert_standard_to_military_time(grind['end']),
+                          grind['time']] for grind in grinds
                          if 'start' in grind and (year == 'All Time' or grind['date'].startswith(year))]
             collector = sorted(collector, key=lambda x: x[0])
 
@@ -665,7 +678,7 @@ class Grind(GUI):
             self._update_plot(collector, label=self.grinders[value]['name'])
 
     def _update_plot(self, data, label=None, legend=True):
-        # find out if current plot line is setup for dates:
+        # find out if current plot line is set up for dates:
         if self.var_gender.get() in ["Males", "Females", "Nones", "All"]:
             current_ticks = self.ax.get_xticks().tolist()
             if current_ticks[-1] < 1000:
@@ -687,6 +700,7 @@ class Grind(GUI):
                 items = self.ax.get_xticks().tolist()
 
                 if int(items[0]) > 1:
+                    self.ax.xaxis.set_ticks([num2date(item) for item in items])
                     self.ax.set_xticklabels([num2date(item) for item in items], rotation=42, fontsize=11)
                     self.ax.xaxis.set_major_formatter(hfmt)
 
@@ -714,7 +728,7 @@ class Grind(GUI):
         self.ax.text(0, -0.45, "Data source: https://www.grousemountain.com/grind_stats",
                      transform=self.ax.transAxes,
                      fontsize=11)
-        self.dataplot.show()
+        # self.dataplot.show()
 
 
 def grouse_grind_app():
@@ -728,15 +742,6 @@ def grouse_grind_app():
     root.mainloop()
 
 
-def test_app():
-    root = tk.Tk()
-    root.title("Grouse Grind App 0.5")
-    # root.geometry("1040x720")
-    GUI(root)
-    root.mainloop()
-
-
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     grouse_grind_app()
-    # test_app()

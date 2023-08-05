@@ -1,4 +1,4 @@
-import account
+from datascrape import account
 import logging
 
 logging.basicConfig(format='%(asctime)s - %(name)-8s - %(levelname)-8s - %(message)s',

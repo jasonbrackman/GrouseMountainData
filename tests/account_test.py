@@ -8,7 +8,7 @@
 
 
 import io
-import account
+from datascrape import account
 
 
 def mock_account():
@@ -23,11 +23,17 @@ def mock_account():
 
 
 def test_load_json_data():
-    pass
+    example = account.load_json_data(r'.\test.json')
+    assert type(example) == dict
 
 
-def test_dump_json_data():
-    account.load_json_data(storage_path="")
+def test_add_account():
+    test_uuid = -1
+    test_accounts = account.add_account(dict())
+    test_account_keys = test_accounts.get(test_uuid, dict()).keys()
+    for key in ['name', 'age', 'sex', 'grinds', 'last_update']:
+        if key not in test_account_keys:
+            assert False, "The following key is missing from the account: {} Expected: {}".format(key, test_account_keys)
 
 
 if __name__ == '__main__':

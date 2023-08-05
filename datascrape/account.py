@@ -11,7 +11,7 @@ from bs4 import BeautifulSoup
 logger = logging.getLogger(__name__)
 
 
-def load_json_data(storage_path=os.path.expanduser("~/Documents/grousemountaindata.json")):
+def load_json_data(storage_path="./data/grousemountaindata.json"):
     """
     Standardized loading of json data
     - includes feedback to the console

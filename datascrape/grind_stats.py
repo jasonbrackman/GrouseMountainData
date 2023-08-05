@@ -1,4 +1,4 @@
-import account
+from datascrape import account
 import requests
 import logging
 from bs4 import BeautifulSoup

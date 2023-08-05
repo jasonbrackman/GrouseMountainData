@@ -1,4 +1,4 @@
-import account
+from datascrape import account
 import itertools
 import logging
 from datetime import datetime
@@ -10,11 +10,10 @@ logger = logging.getLogger(__name__)
 def collect_grinds_by_year(accounts):
     grind_attempts = collections.defaultdict(int)
     for uuid, data in accounts.items():
-        if data['grinds']:
-            dates = [grind['date'].split('-')[0] for grind in data['grinds']]
-            count = collections.Counter(dates)
-            for date, attempts in count.items():
-                grind_attempts[date] += attempts
+        dates = [grind['date'].split('-')[0] for grind in data.get('grinds', list())]
+        count = collections.Counter(dates)
+        for date, attempts in count.items():
+            grind_attempts[date] += attempts
 
     print("Year\tCount")
     for k, v in sorted(grind_attempts.items()):
