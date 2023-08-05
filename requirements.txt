@@ -1,4 +1,4 @@
-requests
-numpy==1.11.2
-beautifulsoup4==4.5.1
-matplotlib==1.5.3
+requests>=2.31
+numpy>=1.25.2
+beautifulsoup4>=4.12.2
+matplotlib>=3.7.2
